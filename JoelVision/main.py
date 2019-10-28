@@ -22,7 +22,7 @@ def check_db_access(str: host, port):
 
     # check the database connections
         # Get a count of the number of databases at the connection (accessible through that port) before attempting to add to it
-    db_count_pre = len(client.list_databases())
+    db_count_pre = len(client.list_database_names())
         # Add a database and collection
     db = client.test_db
     col = db.test_col
@@ -45,5 +45,3 @@ def check_db_access(str: host, port):
     client.drop_database(db)
     client.close()
     return()
-
-check_db_access(host, port)
