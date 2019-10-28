@@ -1,5 +1,14 @@
 ''' Functions that will be used in this app...
 '''
+import shutil
+from splinter import Browser
+import pymongo
+from pymongo import MongoClient
+from pymongo.errors import ConnectionFailure
+
+
+host = 'local'
+port = 27017
 
 
 def chrome():
