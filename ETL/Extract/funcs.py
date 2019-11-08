@@ -2,11 +2,14 @@
 '''
 import shutil
 from splinter import Browser
+from selenium.common.exceptions import InvalidElementStateException
+from selenium.common.exceptions import ElementNotInteractableException
 import pymongo
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
 
 
+global browser
 host = 'local'
 port = 27017
 
@@ -51,14 +54,12 @@ def check_db_access(str: host, port):
            }
     col.insert_one(post)
 
-        # Get a count of the databases after adding one
+    # Get a count of the databases after adding one
     db_count_post = len(client.list_database_names())
-
     if db_count_pre-db_count_post>=0:
         print('Your conneciton is flipped up')
     else:
         print('You have write access')
-
     client.drop_database(db)
     client.close()
     return()
