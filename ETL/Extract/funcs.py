@@ -9,7 +9,6 @@ from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
 
 
-global browser
 host = 'local'
 port = 27017
 
@@ -21,12 +20,30 @@ def chrome():
     return(browser)
 
 
-def scrape_now(browser):
-    ''' Get observed weather data from the current weather page '''
-    divs = browser.find_by_tag('div').first
-    nowcard = divs.find_by_tag('section.today_nowcard-container').value
-    nowlist = nowcard.split('\n')
-    return(nowcard)
+def zip_and_click(code):
+    '''
+    Enter zip codes into the search bar on weather.com and click the first result.
+    '''
+    import time
+    
+    filled = False
+    clicked = False
+    inputs = browser.find_by_tag('input') # get the search box reference
+    search_box = inputs[0]
+    
+    while not filled:
+        try:
+            search_box.fill(code)
+            filled = True
+        except InvalidElementStateException:
+            time.sleep(1)
+    while not clicked:
+        try:
+            browser.click_link_by_partial_href('/weather/today/l')
+            clicked = True
+        except ElementNotInteractableException:
+            time.sleep(1)
+    return()
 
 
 def check_db_access(str: host, port):
@@ -54,12 +71,14 @@ def check_db_access(str: host, port):
            }
     col.insert_one(post)
 
-    # Get a count of the databases after adding one
+        # Get a count of the databases after adding one
     db_count_post = len(client.list_database_names())
+
     if db_count_pre-db_count_post>=0:
         print('Your conneciton is flipped up')
     else:
         print('You have write access')
+
     client.drop_database(db)
     client.close()
     return()
