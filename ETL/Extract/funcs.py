@@ -18,6 +18,14 @@ def chrome():
     return(browser)
 
 
+def scrape_now(browser):
+    ''' Get observed weather data from the current weather page '''
+    divs = browser.find_by_tag('div').first
+    nowcard = divs.find_by_tag('section.today_nowcard-container').value
+    nowlist = nowcard.split('\n')
+    return(nowcard)
+
+
 def check_db_access(str: host, port):
     '''A check that there is write access to the database'''
    
