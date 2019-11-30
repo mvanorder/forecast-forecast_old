@@ -2,6 +2,8 @@
 '''
 import shutil
 from splinter import Browser
+from selenium.common.exceptions import InvalidElementStateException
+from selenium.common.exceptions import ElementNotInteractableException
 import pymongo
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
@@ -16,6 +18,32 @@ def chrome():
     executable_path = {'executable_path': shutil.which('chromedriver')}
     browser = Browser('chrome', **executable_path)
     return(browser)
+
+
+def zip_and_click(code):
+    '''
+    Enter zip codes into the search bar on weather.com and click the first result.
+    '''
+    import time
+    
+    filled = False
+    clicked = False
+    inputs = browser.find_by_tag('input') # get the search box reference
+    search_box = inputs[0]
+    
+    while not filled:
+        try:
+            search_box.fill(code)
+            filled = True
+        except InvalidElementStateException:
+            time.sleep(1)
+    while not clicked:
+        try:
+            browser.click_link_by_partial_href('/weather/today/l')
+            clicked = True
+        except ElementNotInteractableException:
+            time.sleep(1)
+    return()
 
 
 def check_db_access(str: host, port):

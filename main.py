@@ -45,3 +45,5 @@ def check_db_access(str: host, port):
     client.drop_database(db)
     client.close()
     return()
+
+check_db_access(host, port)
