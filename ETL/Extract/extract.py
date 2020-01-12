@@ -267,11 +267,11 @@ def scheduled_forecast_request():
     
     schedule.every(3).hours.do(get_weather, codes)
     while True:
-        n+=1
         print(f'collected forecast data {n} times, and I been doing this for {(time.time()-start_time)//60} minutes.')
         schedule.run_pending()
+        n+=1
+        print(f'finished {n}th time updating database') 
         time.sleep(3600)
-        
         
 if __name__ == '__main__':
     filename = 'resources/success_zips.csv'
