@@ -273,7 +273,7 @@ def scheduled_forecast_request():
         time.sleep(3600)
         
         
-if __name__ = '__main__':
+if __name__ == '__main__':
     filename = 'resources/success_zips.csv'
     codes = read_list_from_file(filename)
     scheduled_forecast_request()
