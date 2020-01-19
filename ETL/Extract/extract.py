@@ -175,6 +175,7 @@ def get_weather(codes, uri):
     :param codes: list of zip codes
     :type codes: list of strings
     '''
+    n = int
     client = check_db_access(uri)
     for code in codes:
         n = 0 # count the number of times set_location() is called- it will call itself if it encounters APIcalltimeouterror
