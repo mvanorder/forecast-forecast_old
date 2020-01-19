@@ -109,10 +109,21 @@ def set_location(code):
         
         :param code: the zip code to find weather data about
         :type code: string
+        
+        :return pass: hopefully this will get get_weather() to skip the zip if it can't get the api to respond
     '''
     global obs, zlat, zlon
     print(f'the zip code is {code}, and I am trying to put it into owm.weather_at_zip function.')
-    obs = owm.weather_at_zip_code(f'{code}', 'us')
+    try:
+        obs = owm.weather_at_zip_code(f'{code}', 'us')
+    except APICallTimeoutError:
+        time.sleep(2)
+        try:
+            obs = owm.weather_at_zip_code(f'{code}', 'us')
+        except APICallTimeoutError:
+            print(f'\n******************************************{code}*************************************************\n')
+            pass
+#             return(f'did not get location set for {code})
     location = obs.get_location()
     zlon = location.get_lon()
     zlat = location.get_lat()
