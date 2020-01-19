@@ -2,25 +2,32 @@
 the data collection happens every 3 hours (the granularity of the weather data available).
 '''
 
+import json
+import os
+import time
+import urllib
+import schedule
+import dns
+
+
 from pyowm import OWM
 from pyowm.weatherapi25.forecast import Forecast
 from pyowm.exceptions.api_response_error import NotFoundError
 from pyowm.exceptions.api_call_error import APICallTimeoutError
-from config import OWM_API_key as key, connection_port, mongodb_host
 from pprint import pprint
 from pymongo import MongoClient
-from pymongo.errors import ConnectionFailure, InvalidDocument, DuplicateKeyError
-import json
-import os
-from os import path
-import schedule
-import time
-
+from pymongo.errors import ConnectionFailure, InvalidDocument, DuplicateKeyError, OperationFailure
+from urllib.parse import quote
+from config import OWM_API_key as key, connection_port, user, loc_host, remo_host, password, socket_path
 
 API_key = key
-host = mongodb_host
+loc_host = loc_host
+rem_host = remo_host
 port = connection_port
 filename = 'resources/zip_list.csv'
+password = quote(password)  # url code the password
+uri = "mongodb+srv://%s:%s@%stest?retryWrites=true&w=majority" % (user, password, socket_path)
+
 global zipcode
 owm = OWM(API_key) # the OWM object
 global obs
@@ -142,17 +149,18 @@ def five_day():
     return(json.loads(forecast.to_JSON()))
 
 
-def get_weather(codes):
+def get_weather(codes, uri):
     print('using get_weather', time.time())
     ''' Get the weather from the API and load it to the database. 
     
     :param codes: list of zip codes
     :type codes: list of strings
     '''
-    client = check_db_access(host, port)
+    client = check_db_access(uri)
     for code in codes:
         data = {}
         set_location(code)
+        time.sleep(1)
         data.update({'zipcode': code,
                      'current': current(),
                      'five_day': five_day(),
@@ -161,11 +169,12 @@ def get_weather(codes):
 #         print(f'data in for {code}')
     client.close()
     print('client closed')
-    return
+    return()
 
 
-def check_db_access(host, port):
-#     print('using check_db_access')
+# def check_db_access(host, port):
+def check_db_access(uri):
+    print('using check_db_access')
     ''' A check that there is write access to the database
     
         :param host: the database host
@@ -173,7 +182,8 @@ def check_db_access(host, port):
         :param port: the database connection port
         :type port: int
     '''
-    client = MongoClient(host=host, port=port)
+#     client = MongoClient(host=host, port=port)
+    client = MongoClient(uri)    
     try:
         # The ismaster command is cheap and does not require auth.
         client.admin.command('ismaster')
@@ -221,7 +231,7 @@ def to_json(data, code):
     '''
     collection = data
     directory = os.getcwd()
-    save_path = path.join(directory, 'Data', f'{code}.json')
+    save_path = os.path.join(directory, 'Data', f'{code}.json')
     Data = open(save_path, 'a+')
     Data.write(collection)
     Data.close()
@@ -265,15 +275,15 @@ def scheduled_forecast_request():
     start_time = time.time()
     n = 0
     
-    schedule.every(3).hours.do(get_weather, codes)
+    schedule.every(3).hours.do(get_weather, codes, uri).run()
     while True:
+        n+=1
         print(f'collected forecast data {n} times, and I been doing this for {(time.time()-start_time)//60} minutes.')
         schedule.run_pending()
-        n+=1
-        print(f'finished {n}th time updating database') 
-        time.sleep(3600)
+        time.sleep(time.time()-start_time)
         
 if __name__ == '__main__':
     filename = 'resources/success_zips.csv'
     codes = read_list_from_file(filename)
+#     get_weather(codes, uri)
     scheduled_forecast_request()
