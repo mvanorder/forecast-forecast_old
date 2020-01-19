@@ -104,7 +104,7 @@ def read_list_from_file(filename):
 
 
 def set_location(code):
-#     print('using get_location')
+    print(f'using set_location for {code}')
     ''' Get the latitude and longitude corrosponding to the zip code.
         
         :param code: the zip code to find weather data about
@@ -115,19 +115,27 @@ def set_location(code):
     global obs, zlat, zlon
     print(f'the zip code is {code}, and I am trying to put it into owm.weather_at_zip function.')
     try:
+        n+=1
+        if n == 4:
+            print('done tried that 3 times, time to figure something else out...')
+            return(False)
+        time.sleep(.5)
         obs = owm.weather_at_zip_code(f'{code}', 'us')
-    except APICallTimeoutError:
-        time.sleep(2)
-        try:
-            obs = owm.weather_at_zip_code(f'{code}', 'us')
-        except APICallTimeoutError:
-            print(f'\n******************************************{code}*************************************************\n')
-            pass
-#             return(f'did not get location set for {code})
+    except APICallTimeoutError as e:
+        print(e, 'seeing if I need to reinitialize the OWM object')
+        owm = OWM(API_key) # try to reestablish the OWM object
+        set_location(code)
+#        time.sleep(2)
+#         try:
+#             obs = owm.weather_at_zip_code(f'{code}', 'us')
+#         except APICallTimeoutError:
+#             print(f'\n******************************************{code}*************************************************\n')
+#             pass
+# #             return(f'did not get location set for {code})
     location = obs.get_location()
     zlon = location.get_lon()
     zlat = location.get_lat()
-    return
+    return(True)
 
 
 def current():
@@ -161,7 +169,7 @@ def five_day():
 
 
 def get_weather(codes, uri):
-    print('using get_weather', time.time())
+    print(f'using get_weather for {code}', time.time())
     ''' Get the weather from the API and load it to the database. 
     
     :param codes: list of zip codes
@@ -169,8 +177,10 @@ def get_weather(codes, uri):
     '''
     client = check_db_access(uri)
     for code in codes:
+        n = 0 # count the number of times set_location() is called- it will call itself if it encounters APIcalltimeouterror
         data = {}
-        set_location(code)
+        if set_location(code) is False:
+            pass
         time.sleep(1)
         data.update({'zipcode': code,
                      'current': current(),
