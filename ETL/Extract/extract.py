@@ -169,7 +169,7 @@ def five_day():
 
 
 def get_weather(codes, uri):
-    print(f'using get_weather for {code}', time.time())
+    print('using get_weather', time.time())
     ''' Get the weather from the API and load it to the database. 
     
     :param codes: list of zip codes
