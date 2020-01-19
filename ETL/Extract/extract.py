@@ -103,16 +103,18 @@ def read_list_from_file(filename):
         return z_list.read().strip().split(',')
 
 
-def set_location(code):
-    print(f'using set_location for {code}')
+def set_location(code, n):
+    print(f'{n}th time using set_location for {code}')
     ''' Get the latitude and longitude corrosponding to the zip code.
         
         :param code: the zip code to find weather data about
         :type code: string
+        :param n: a counter to monitor the number of times set_location() has run
+        :type n: int
         
         :return pass: hopefully this will get get_weather() to skip the zip if it can't get the api to respond
     '''
-    global obs, zlat, zlon, n
+    global obs, zlat, zlon
     print(f'the zip code is {code}, and I am trying to put it into owm.weather_at_zip function.')
     try:
         n+=1
@@ -180,7 +182,7 @@ def get_weather(codes, uri):
     for code in codes:
         n = 0 # count the number of times set_location() is called- it will call itself if it encounters APIcalltimeouterror
         data = {}
-        if set_location(code) is False:
+        if set_location(code, n) is False:
             pass
         time.sleep(1)
         data.update({'zipcode': code,
