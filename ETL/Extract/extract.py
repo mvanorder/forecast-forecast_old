@@ -112,7 +112,7 @@ def set_location(code):
         
         :return pass: hopefully this will get get_weather() to skip the zip if it can't get the api to respond
     '''
-    global obs, zlat, zlon
+    global obs, zlat, zlon, n
     print(f'the zip code is {code}, and I am trying to put it into owm.weather_at_zip function.')
     try:
         n+=1
