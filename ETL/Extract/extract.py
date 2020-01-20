@@ -9,7 +9,6 @@ import urllib
 import schedule
 import dns
 
-
 from pyowm import OWM
 from pyowm.weatherapi25.forecast import Forecast
 from pyowm.exceptions.api_response_error import NotFoundError
@@ -20,16 +19,7 @@ from pymongo.errors import ConnectionFailure, InvalidDocument, DuplicateKeyError
 from urllib.parse import quote
 from config import OWM_API_key as key, connection_port, user, loc_host, remo_host, password, socket_path
 
-API_key = key
-loc_host = loc_host
-rem_host = remo_host
-port = connection_port
-filename = 'resources/zip_list.csv'
-password = quote(password)  # url code the password
-uri = "mongodb+srv://%s:%s@%stest?retryWrites=true&w=majority" % (user, password, socket_path)
-
 global zipcode
-owm = OWM(API_key) # the OWM object
 global obs
 global reception_time
 global zid
@@ -37,6 +27,15 @@ global zlon
 global zlat
 global client
 
+filename = 'resources/zip_list.csv'
+API_key = key
+loc_host = loc_host
+rem_host = remo_host
+port = connection_port
+owm = OWM(API_key)    # the OWM object
+password = quote(password)    # url encode the password for the mongodb uri
+uri = "mongodb+srv://%s:%s@%s" % (user, password, socket_path)
+print(uri)
 
 def make_zip_list(state):
 #     print('using make_zip_list')
@@ -103,41 +102,20 @@ def read_list_from_file(filename):
         return z_list.read().strip().split(',')
 
 
-def set_location(code, n):
-    print(f'{n}th time using set_location for {code}')
+def set_location(code):
+#     print('using get_location')
     ''' Get the latitude and longitude corrosponding to the zip code.
         
         :param code: the zip code to find weather data about
         :type code: string
-        :param n: a counter to monitor the number of times set_location() has run
-        :type n: int
-        
-        :return pass: hopefully this will get get_weather() to skip the zip if it can't get the api to respond
     '''
     global obs, zlat, zlon
     print(f'the zip code is {code}, and I am trying to put it into owm.weather_at_zip function.')
-    try:
-        n+=1
-        if n == 4:
-            print('done tried that 3 times, time to figure something else out...')
-            return(False)
-        time.sleep(.5)
-        obs = owm.weather_at_zip_code(f'{code}', 'us')
-    except APICallTimeoutError as e:
-        print(e, 'seeing if I need to reinitialize the OWM object')
-        owm = OWM(API_key) # try to reestablish the OWM object
-        set_location(code)
-#        time.sleep(2)
-#         try:
-#             obs = owm.weather_at_zip_code(f'{code}', 'us')
-#         except APICallTimeoutError:
-#             print(f'\n******************************************{code}*************************************************\n')
-#             pass
-# #             return(f'did not get location set for {code})
+    obs = owm.weather_at_zip_code(f'{code}', 'us')
     location = obs.get_location()
     zlon = location.get_lon()
     zlat = location.get_lat()
-    return(True)
+    return
 
 
 def current():
@@ -170,6 +148,7 @@ def five_day():
     return(json.loads(forecast.to_JSON()))
 
 
+# def get_weather(codes, loc_host, port):
 def get_weather(codes, uri):
     print('using get_weather', time.time())
     ''' Get the weather from the API and load it to the database. 
@@ -177,14 +156,11 @@ def get_weather(codes, uri):
     :param codes: list of zip codes
     :type codes: list of strings
     '''
-    n = int
+#     client = check_db_access(loc_host, port)
     client = check_db_access(uri)
     for code in codes:
-        n = 0 # count the number of times set_location() is called- it will call itself if it encounters APIcalltimeouterror
         data = {}
-        if set_location(code, n) is False:
-            pass
-        time.sleep(1)
+        set_location(code)
         data.update({'zipcode': code,
                      'current': current(),
                      'five_day': five_day(),
@@ -193,10 +169,10 @@ def get_weather(codes, uri):
 #         print(f'data in for {code}')
     client.close()
     print('client closed')
-    return()
+    return
 
 
-# def check_db_access(host, port):
+# def check_db_access(loc_host, port):
 def check_db_access(uri):
     print('using check_db_access')
     ''' A check that there is write access to the database
@@ -299,15 +275,24 @@ def scheduled_forecast_request():
     start_time = time.time()
     n = 0
     
-    schedule.every(3).hours.do(get_weather, codes, uri).run()
+    schedule.every(3).hours.do(get_weather, codes)
     while True:
         n+=1
         print(f'collected forecast data {n} times, and I been doing this for {(time.time()-start_time)//60} minutes.')
         schedule.run_pending()
-        time.sleep(time.time()-start_time)
+        time.sleep(3600)
+        
         
 if __name__ == '__main__':
-    filename = 'resources/success_zips.csv'
+    filename = 'resources/success_zips.csv' 
     codes = read_list_from_file(filename)
-#     get_weather(codes, uri)
-    scheduled_forecast_request()
+    num_zips = len(codes)
+    i, n = 0, 0
+    while n < num_zips:
+        codeslice = codes[i:i+10]
+        i += 10
+        n += 10
+#         get_weather(codes, loc_host, port)
+        get_weather(codeslice, uri)
+        time.sleep(10)
+#     scheduled_forecast_request()
