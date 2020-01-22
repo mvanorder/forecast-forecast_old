@@ -292,7 +292,7 @@ def scheduled_forecast_request():
 # filename = os.path.abspath('resources/success_zips.csv')
 # codes = read_list_from_file(filename)[1000:1080]
 if __name__ == '__main__':
-    filename = os.path.abspath('data/forcast-forcast/resources/success_zips.csv')
+    filename = os.path.abspath('data/forcast-forcast/ETL/Extract/resources/success_zips.csv')
     codes = read_list_from_file(filename)
     num_zips = len(codes)
     i, n = 0, 0
