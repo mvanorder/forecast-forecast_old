@@ -109,7 +109,15 @@ def set_location(code):
     '''
     global obs, zlat, zlon
     print(f'the zip code is {code}, and I am trying to put it into owm.weather_at_zip function.')
-    obs = owm.weather_at_zip_code(f'{code}', 'us')
+    try:
+        obs = owm.weather_at_zip_code(f'{code}', 'us')
+    except APICallTimeoutError:
+        time.sleep(5)
+        try:
+            obs = owm.weather_at_zip_code(f'{code}', 'us')
+        except APICallTimeoutError:
+            print(f'could not get past the goddamn api call for {code}.')
+            return
     location = obs.get_location()
     zlon = location.get_lon()
     zlat = location.get_lat()
@@ -281,11 +289,19 @@ def scheduled_forecast_request():
         time.sleep(3600)
 
 
+<<<<<<< HEAD
 filename = os.path.abspath('resources/success_zips.csv')
 codes = read_list_from_file(filename)[1000:1080]
 if __name__ == '__main__':
     filename = os.path.abspath('resources/success_zips.csv')
     codes = read_list_from_file(filename)[:-80]
+=======
+# filename = os.path.abspath('resources/success_zips.csv')
+# codes = read_list_from_file(filename)[1000:1080]
+if __name__ == '__main__':
+    filename = os.path.abspath('resources/success_zips.csv')
+    codes = read_list_from_file(filename)
+>>>>>>> apierrors
     num_zips = len(codes)
     i, n = 0, 0
     while n < num_zips:
