@@ -27,7 +27,7 @@ global zlon
 global zlat
 global client
 
-filename = 'resources/zip_list.csv'
+filename = os.path.abspath('resources/zip_list.csv')
 API_key = key
 loc_host = loc_host
 rem_host = remo_host
@@ -100,7 +100,6 @@ def read_list_from_file(filename):
     """
     with open(filename, "r") as z_list:
         return z_list.read().strip().split(',')
-
 
 def set_location(code):
 #     print('using get_location')
