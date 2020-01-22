@@ -289,19 +289,9 @@ def scheduled_forecast_request():
         time.sleep(3600)
 
 
-<<<<<<< HEAD
-filename = os.path.abspath('resources/success_zips.csv')
-codes = read_list_from_file(filename)[1000:1080]
-if __name__ == '__main__':
-    filename = os.path.abspath('resources/success_zips.csv')
-    codes = read_list_from_file(filename)[:-80]
-=======
-# filename = os.path.abspath('resources/success_zips.csv')
-# codes = read_list_from_file(filename)[1000:1080]
 if __name__ == '__main__':
     filename = os.path.abspath('resources/success_zips.csv')
     codes = read_list_from_file(filename)
->>>>>>> apierrors
     num_zips = len(codes)
     i, n = 0, 0
     while n < num_zips:
