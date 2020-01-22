@@ -27,7 +27,6 @@ global zlon
 global zlat
 global client
 
-filename = os.path.abspath('resources/zip_list.csv')
 API_key = key
 loc_host = loc_host
 rem_host = remo_host
@@ -280,11 +279,13 @@ def scheduled_forecast_request():
         print(f'collected forecast data {n} times, and I been doing this for {(time.time()-start_time)//60} minutes.')
         schedule.run_pending()
         time.sleep(3600)
-        
-        
+
+
+filename = os.path.abspath('resources/success_zips.csv')
+codes = read_list_from_file(filename)[1000:1080]
 if __name__ == '__main__':
-    filename = 'resources/success_zips.csv' 
-    codes = read_list_from_file(filename)
+    filename = os.path.abspath('resources/success_zips.csv')
+    codes = read_list_from_file(filename)[:-80]
     num_zips = len(codes)
     i, n = 0, 0
     while n < num_zips:
