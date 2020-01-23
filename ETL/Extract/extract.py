@@ -15,6 +15,7 @@ from pyowm.exceptions.api_response_error import NotFoundError
 from pyowm.exceptions.api_call_error import APICallTimeoutError
 from pprint import pprint
 from pymongo import MongoClient
+from pymongo.collection import Collection
 from pymongo.errors import ConnectionFailure, InvalidDocument, DuplicateKeyError, OperationFailure
 from urllib.parse import quote
 from config import OWM_API_key as key, connection_port, user, loc_host, remo_host, password, socket_path
@@ -26,6 +27,8 @@ global zid
 global zlon
 global zlat
 global client
+global ref_time
+global rec_time
 
 API_key = key
 loc_host = loc_host
@@ -101,7 +104,6 @@ def read_list_from_file(filename):
         return z_list.read().strip().split(',')
 
 def set_location(code):
-#     print('using get_location')
     ''' Get the latitude and longitude corrosponding to the zip code.
         
         :param code: the zip code to find weather data about
@@ -125,25 +127,25 @@ def set_location(code):
 
 
 def current():
-#     print('using current')
     ''' Dump the current weather to a json
 
         :return current: the currently observed weather data
         :type current: dict
     '''
     global obs
+    global ref_time
     current = json.loads(obs.to_JSON()) # dump all that weather data to a json object
+    rec_time = current['reception_time']
     return(current)
 
 
 def five_day():
-#     print('using five_day')
     ''' Get each weather forecast for the corrosponding zip code. 
     
         :return five_day: the five day, every three hours, forecast for the zip code
         :type five_day: dict
     '''
-    global obs, zlat, zlon
+    global obs, zlat, zlon, ref_time
     try:
         forecaster = owm.three_hours_forecast_at_coords(zlat, zlon)
     except APICallTimeoutError:
@@ -156,7 +158,6 @@ def five_day():
 
 # def get_weather(codes, loc_host, port):
 def get_weather(codes, uri):
-    print('using get_weather', time.time())
     ''' Get the weather from the API and load it to the database. 
     
     :param codes: list of zip codes
@@ -167,7 +168,8 @@ def get_weather(codes, uri):
     for code in codes:
         data = {}
         set_location(code)
-        data.update({'zipcode': code,
+        data.update({'_id': time.time(),
+                     'zipcode': code,
                      'current': current(),
                      'five_day': five_day(),
                     })
@@ -180,7 +182,6 @@ def get_weather(codes, uri):
 
 # def check_db_access(loc_host, port):
 def check_db_access(uri):
-    print('using check_db_access')
     ''' A check that there is write access to the database
     
         :param host: the database host
@@ -197,31 +198,6 @@ def check_db_access(uri):
     except ConnectionFailure:
         print("Server not available")
         return
-
-    # check the database connections
-        # Get a count of the number of databases at the connection (accessible through that port)
-        # before attempting to add to it
-    db_count_pre = len(client.list_database_names())
-        # Add a database and collection
-    db = client.test_db
-    col = db.test_col
-
-    # Insert something to the db
-    post = {'name':'Chuck VanHoff',
-           'age':'38',
-           'hobby':'gardening'
-           }
-    col.insert_one(post)
-
-        # Get a count of the databases after adding one
-    db_count_post = len(client.list_database_names())
-
-    if db_count_pre-db_count_post>=0:
-        print('Your conneciton is flipped up')
-    else:
-        print('You have write access')
-
-    client.drop_database(db)
     return(client)
 
 
@@ -245,7 +221,7 @@ def to_json(data, code):
 
 
 def load(data, client):
-#     print('using load')
+    print('using load')
     ''' Load the data to the database if possible, otherwise write to json file. 
         
         :param data: the dictionary created from the api calls
@@ -254,11 +230,17 @@ def load(data, client):
         :type client: MongoClient
     '''
     if type(data) == dict:
+        database = client.forcast
+        print(database)
+        name = f'{data["zipcode"]}'
+        print(name)
         try:
-            db = client.forcast
-            col = db.code
+            col = Collection(database, name)
+            print(col)
+#             db = client.forcast
+#             col = db.code
             col.insert_one(data)
-#             print(f'inserted data for {data["zipcode"]}')
+            print(f'insterted {col}')
         except DuplicateKeyError:
             client.close()
             print('closed db connection')
@@ -289,11 +271,11 @@ def scheduled_forecast_request():
         time.sleep(3600)
 
 
-# filename = os.path.abspath('resources/success_zips.csv')
-# codes = read_list_from_file(filename)[1000:1080]
+filename = os.path.abspath('resources/success_zipsNC.csv')
+codes = read_list_from_file(filename)[1000:1080]
 if __name__ == '__main__':
-    filename = os.path.abspath('data/forcast-forcast/ETL/Extract/resources/success_zips.csv')
-    codes = read_list_from_file(filename)
+#     filename = os.path.abspath('data/forcast-forcast/ETL/Extract/resources/success_zips.csv')
+#     codes = read_list_from_file(filename)
     num_zips = len(codes)
     i, n = 0, 0
     while n < num_zips:
