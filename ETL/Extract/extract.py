@@ -70,13 +70,14 @@ def make_zip_list(state):
 #                 print(f'successfully set location for {zipp}', len(success_zips))
                 success_zips.append(zipp)
                 successes+=1
+                time.sleep(.9)
             except NotFoundError:
                 print("except", f'NotFoundError with zipcode {zipp}')
                 fail_zips.append(zipp)
                 exceptions+=1
                 pass
-    write_list_to_file(success_zips, 'resources/success_zips.csv')
-    write_list_to_file(fail_zips, 'resources/fail_zips.csv')
+    write_list_to_file(success_zips, f'resources/success_zips{state}.csv')
+    write_list_to_file(fail_zips, f'resources/fail_zips{state}.csv')
     print(f'successes = {successes}; exceptions = {exceptions}, all written to files')
     return(success_zips)
 
@@ -269,6 +270,7 @@ def scheduled_forecast_request():
         print(f'collected forecast data {n} times, and I been doing this for {(time.time()-start_time)//60} minutes.')
         schedule.run_pending()
         time.sleep(3600)
+
 
 directory = os.getcwd()
 filename = os.path.join(directory, 'ETL', 'Extract', 'resources', 'success_zipsNC.csv')
