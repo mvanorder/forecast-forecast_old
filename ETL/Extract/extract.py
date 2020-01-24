@@ -15,6 +15,7 @@ from pyowm.exceptions.api_response_error import NotFoundError
 from pyowm.exceptions.api_call_error import APICallTimeoutError
 from pprint import pprint
 from pymongo import MongoClient
+from pymongo.collection import Collection
 from pymongo.errors import ConnectionFailure, InvalidDocument, DuplicateKeyError, OperationFailure
 from urllib.parse import quote
 from config import OWM_API_key as key, connection_port, user, loc_host, remo_host, password, socket_path
@@ -58,13 +59,10 @@ def make_zip_list(state):
     df = pd.read_csv("resources/zip_code_database.csv")
     # Make a datafram from the rows with the specified state and write the 'zip' column to a list 
     zip_list = df.loc[lambda df: df['state'] == f'{state.upper()}']['zip'].tolist()
-#     zip_list = df['zip'].tolist()
     for zipp in zip_list:
         if int(zipp) > 10000:
             try:
-#                 print('try setting location for ', zipp)
                 set_location(zipp)
-#                 print(f'successfully set location for {zipp}', len(success_zips))
                 success_zips.append(zipp)
                 successes+=1
             except NotFoundError:
@@ -72,13 +70,12 @@ def make_zip_list(state):
                 fail_zips.append(zipp)
                 exceptions+=1
                 pass
-    write_list_to_file(success_zips, 'resources/success_zips.csv')
-    write_list_to_file(fail_zips, 'resources/fail_zips.csv')
+    write_list_to_file(success_zips, f'resources/success_zips{state}.csv')
+    write_list_to_file(fail_zips, f'resources/fail_zips{state}.csv')
     print(f'successes = {successes}; exceptions = {exceptions}, all written to files')
     return(success_zips)
 
 def write_list_to_file(zip_list, filename):
-#     print('using write_list_to_file')
     """ Write the zip codes to csv file.
         
         :param zip_list: the list created from the zip codes dataframe
@@ -91,7 +88,6 @@ def write_list_to_file(zip_list, filename):
     return
         
 def read_list_from_file(filename):
-#     print('using read_list_from_file')
     """ Read the zip codes list from the csv file.
         
         :param filename: the name of the file
@@ -101,14 +97,12 @@ def read_list_from_file(filename):
         return z_list.read().strip().split(',')
 
 def set_location(code):
-#     print('using get_location')
     ''' Get the latitude and longitude corrosponding to the zip code.
         
         :param code: the zip code to find weather data about
         :type code: string
     '''
     global obs, zlat, zlon
-    print(f'the zip code is {code}, and I am trying to put it into owm.weather_at_zip function.')
     try:
         obs = owm.weather_at_zip_code(f'{code}', 'us')
     except APICallTimeoutError:
@@ -125,7 +119,6 @@ def set_location(code):
 
 
 def current():
-#     print('using current')
     ''' Dump the current weather to a json
 
         :return current: the currently observed weather data
@@ -137,7 +130,6 @@ def current():
 
 
 def five_day():
-#     print('using five_day')
     ''' Get each weather forecast for the corrosponding zip code. 
     
         :return five_day: the five day, every three hours, forecast for the zip code
@@ -156,7 +148,6 @@ def five_day():
 
 # def get_weather(codes, loc_host, port):
 def get_weather(codes, uri):
-    print('using get_weather', time.time())
     ''' Get the weather from the API and load it to the database. 
     
     :param codes: list of zip codes
@@ -172,7 +163,6 @@ def get_weather(codes, uri):
                      'five_day': five_day(),
                     })
         load(data, client)
-#         print(f'data in for {code}')
     client.close()
     print('client closed')
     return
@@ -180,13 +170,14 @@ def get_weather(codes, uri):
 
 # def check_db_access(loc_host, port):
 def check_db_access(uri):
-    print('using check_db_access')
-    ''' A check that there is write access to the database
+    ''' A check the database connection and return the client
     
         :param host: the database host
         :type host: string
         :param port: the database connection port
         :type port: int
+        :param uri: the conneciton uri for the remote mongo database
+        :type uri: sting
     '''
 #     client = MongoClient(host=host, port=port)
     client = MongoClient(uri)    
@@ -197,36 +188,10 @@ def check_db_access(uri):
     except ConnectionFailure:
         print("Server not available")
         return
-
-    # check the database connections
-        # Get a count of the number of databases at the connection (accessible through that port)
-        # before attempting to add to it
-    db_count_pre = len(client.list_database_names())
-        # Add a database and collection
-    db = client.test_db
-    col = db.test_col
-
-    # Insert something to the db
-    post = {'name':'Chuck VanHoff',
-           'age':'38',
-           'hobby':'gardening'
-           }
-    col.insert_one(post)
-
-        # Get a count of the databases after adding one
-    db_count_post = len(client.list_database_names())
-
-    if db_count_pre-db_count_post>=0:
-        print('Your conneciton is flipped up')
-    else:
-        print('You have write access')
-
-    client.drop_database(db)
     return(client)
 
 
 def to_json(data, code):
-#     print('using to_json')
     ''' Store the collected data as a json file in the case that the database
         is not connected or otherwise unavailable.
         
@@ -245,7 +210,6 @@ def to_json(data, code):
 
 
 def load(data, client):
-#     print('using load')
     ''' Load the data to the database if possible, otherwise write to json file. 
         
         :param data: the dictionary created from the api calls
@@ -254,11 +218,13 @@ def load(data, client):
         :type client: MongoClient
     '''
     if type(data) == dict:
+        database = client.forcast
+        name = 'code'
         try:
-            db = client.forcast
-            col = db.code
+            col = Collection(database, name)
+            # db = client.forcast
+            # col = db.code
             col.insert_one(data)
-#             print(f'inserted data for {data["zipcode"]}')
         except DuplicateKeyError:
             client.close()
             print('closed db connection')
@@ -271,28 +237,10 @@ def load(data, client):
     return
 
 
-def scheduled_forecast_request():
-    ''' This function is going to make a forecast request every three hours as long
-        as it's running. 
-    
-        :no params:
-        :no returns:
-    '''
-    start_time = time.time()
-    n = 0
-    
-    schedule.every(3).hours.do(get_weather, codes)
-    while True:
-        n+=1
-        print(f'collected forecast data {n} times, and I been doing this for {(time.time()-start_time)//60} minutes.')
-        schedule.run_pending()
-        time.sleep(3600)
-
-
-# filename = os.path.abspath('resources/success_zips.csv')
-# codes = read_list_from_file(filename)[1000:1080]
 if __name__ == '__main__':
-    filename = os.path.abspath('data/forcast-forcast/ETL/Extract/resources/success_zips.csv')
+    filename = str
+    directory = os.getcwd()
+    filename = os.path.join(directory, 'ETL', 'Extract', 'resources', 'success_zipsNC.csv')
     codes = read_list_from_file(filename)
     num_zips = len(codes)
     i, n = 0, 0
@@ -303,4 +251,3 @@ if __name__ == '__main__':
 #         get_weather(codes, loc_host, port)
         get_weather(codeslice, uri)
         time.sleep(10)
-#     scheduled_forecast_request()
