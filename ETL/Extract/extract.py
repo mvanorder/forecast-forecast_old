@@ -270,12 +270,10 @@ def scheduled_forecast_request():
         schedule.run_pending()
         time.sleep(3600)
 
-
-filename = os.path.abspath('resources/success_zipsNC.csv')
-codes = read_list_from_file(filename)[1000:1080]
+directory = os.getcwd()
+filename = os.path.join(directory, 'ETL', 'Extract', 'resources', 'success_zipsNC.csv')
 if __name__ == '__main__':
-#     filename = os.path.abspath('data/forcast-forcast/ETL/Extract/resources/success_zips.csv')
-#     codes = read_list_from_file(filename)
+    codes = read_list_from_file(filename)[200:300]
     num_zips = len(codes)
     i, n = 0, 0
     while n < num_zips:
