@@ -40,7 +40,6 @@ uri = "mongodb+srv://%s:%s@%s" % (user, password, socket_path)
 print(uri)
 
 def make_zip_list(state):
-#     print('using make_zip_list')
     ''' Make a list of zip codes in the specified state.
         Read zip codes from downloadable zip codes csv file available at https://www.unitedstateszipcodes.org/
         
@@ -61,13 +60,10 @@ def make_zip_list(state):
     df = pd.read_csv("resources/zip_code_database.csv")
     # Make a datafram from the rows with the specified state and write the 'zip' column to a list 
     zip_list = df.loc[lambda df: df['state'] == f'{state.upper()}']['zip'].tolist()
-#     zip_list = df['zip'].tolist()
     for zipp in zip_list:
         if int(zipp) > 10000:
             try:
-#                 print('try setting location for ', zipp)
                 set_location(zipp)
-#                 print(f'successfully set location for {zipp}', len(success_zips))
                 success_zips.append(zipp)
                 successes+=1
                 time.sleep(.9)
@@ -82,7 +78,6 @@ def make_zip_list(state):
     return(success_zips)
 
 def write_list_to_file(zip_list, filename):
-#     print('using write_list_to_file')
     """ Write the zip codes to csv file.
         
         :param zip_list: the list created from the zip codes dataframe
@@ -95,7 +90,6 @@ def write_list_to_file(zip_list, filename):
     return
         
 def read_list_from_file(filename):
-#     print('using read_list_from_file')
     """ Read the zip codes list from the csv file.
         
         :param filename: the name of the file
@@ -111,7 +105,6 @@ def set_location(code):
         :type code: string
     '''
     global obs, zlat, zlon
-    print(f'the zip code is {code}, and I am trying to put it into owm.weather_at_zip function.')
     try:
         obs = owm.weather_at_zip_code(f'{code}', 'us')
     except APICallTimeoutError:
@@ -175,7 +168,6 @@ def get_weather(codes, uri):
                      'five_day': five_day(),
                     })
         load(data, client)
-#         print(f'data in for {code}')
     client.close()
     print('client closed')
     return
@@ -183,17 +175,18 @@ def get_weather(codes, uri):
 
 # def check_db_access(loc_host, port):
 def check_db_access(uri):
-    ''' A check that there is write access to the database
+    ''' Check the database connection and return the client
     
         :param host: the database host
         :type host: string
         :param port: the database connection port
         :type port: int
+        :param uri: the conneciton uri for the remote mongo database
+        :type uri: sting
     '''
 #     client = MongoClient(host=host, port=port)
     client = MongoClient(uri)    
     try:
-        # The ismaster command is cheap and does not require auth.
         client.admin.command('ismaster')
         print('client open')
     except ConnectionFailure:
@@ -203,7 +196,6 @@ def check_db_access(uri):
 
 
 def to_json(data, code):
-#     print('using to_json')
     ''' Store the collected data as a json file in the case that the database
         is not connected or otherwise unavailable.
         
@@ -222,7 +214,6 @@ def to_json(data, code):
 
 
 def load(data, client):
-    print('using load')
     ''' Load the data to the database if possible, otherwise write to json file. 
         
         :param data: the dictionary created from the api calls
@@ -232,16 +223,12 @@ def load(data, client):
     '''
     if type(data) == dict:
         database = client.forcast
-        print(database)
-        name = f'{data["zipcode"]}'
-        print(name)
+        name = 'code'
         try:
             col = Collection(database, name)
-            print(col)
-#             db = client.forcast
-#             col = db.code
+            # db = client.forcast
+            # col = db.code
             col.insert_one(data)
-            print(f'insterted {col}')
         except DuplicateKeyError:
             client.close()
             print('closed db connection')
@@ -254,28 +241,11 @@ def load(data, client):
     return
 
 
-def scheduled_forecast_request():
-    ''' This function is going to make a forecast request every three hours as long
-        as it's running. 
-    
-        :no params:
-        :no returns:
-    '''
-    start_time = time.time()
-    n = 0
-    
-    schedule.every(3).hours.do(get_weather, codes)
-    while True:
-        n+=1
-        print(f'collected forecast data {n} times, and I been doing this for {(time.time()-start_time)//60} minutes.')
-        schedule.run_pending()
-        time.sleep(3600)
-
-
-directory = os.getcwd()
-filename = os.path.join(directory, 'ETL', 'Extract', 'resources', 'success_zipsNC.csv')
 if __name__ == '__main__':
-    codes = read_list_from_file(filename)[200:300]
+    filename = str
+    directory = os.getcwd()
+    filename = os.path.join(directory, 'ETL', 'Extract', 'resources', 'success_zipsNC.csv')
+    codes = read_list_from_file(filename)
     num_zips = len(codes)
     i, n = 0, 0
     while n < num_zips:
@@ -285,4 +255,3 @@ if __name__ == '__main__':
 #         get_weather(codes, loc_host, port)
         get_weather(codeslice, uri)
         time.sleep(10)
-#     scheduled_forecast_request()
