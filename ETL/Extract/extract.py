@@ -170,7 +170,7 @@ def five_day():
         :return five_day: the five day, every three hours, forecast for the zip code
         :type five_day: dict
     '''
-    global obs, zlat, zlon, ref_time
+    global obs, zlat, zlon, ref_time, owm
     try:
         forecaster = owm.three_hours_forecast_at_coords(zlat, zlon)
     except APIInvalidSSLCertificateError:
@@ -178,7 +178,7 @@ def five_day():
         forecaster = owm.three_hours_forecast_at_coords(zlat, zlon)
         print('this time it worked')
     except APIInvalidSSLCertificateError:
-        print('same exception again...I will reestablishing the OWM object.')
+        print('same exception again...try reestablishing the OWM object.')
         owm = OWM(API_key)    # the OWM object
         forecaster = owm.three_hours_forecast_at_coords(zlat, zlon)
         print('this time it worked')
@@ -215,13 +215,13 @@ def get_weather(codes, uri):
                      'current': current(),
                     #  'five_day': five_day()
                     })
-        load(weather, client)
+        load(weather, client, 'weather')
         forecast.update({'_id': time.time(),
-                    #  'zipcode': code,
+                     'zipcode': code,
                     #  'current': current(),
                      'five_day': five_day()
                     })
-        load(forecast, client)
+        load(forecast, client, 'forecast')
     client.close()
     # print('client closed')
     return
@@ -267,7 +267,7 @@ def to_json(data, code):
     return
 
 
-def load(data, client):
+def load(data, client, name):
     ''' Load the data to the database if possible, otherwise write to json file. 
         
         :param data: the dictionary created from the api calls
@@ -277,7 +277,7 @@ def load(data, client):
     '''
     if type(data) == dict:
         database = client.OWM
-        name = 'code'
+        # name = name
         try:
             col = Collection(database, name)
             # db = client.forcast
@@ -301,7 +301,7 @@ if __name__ == '__main__':
     codes = read_list_from_file(filename)
     num_zips = len(codes)
     i, n = 0, 0
-    print(f'task began at time.time')
+    print(f'task began at {time.localtime()}')
     while n < num_zips:
         codeslice = codes[i:i+10]
         i += 10
@@ -309,3 +309,5 @@ if __name__ == '__main__':
 #         get_weather(codes, loc_host, port)
         get_weather(codeslice, uri)
         time.sleep(10)
+    print(f'task ended at {time.localtime()}')
+
