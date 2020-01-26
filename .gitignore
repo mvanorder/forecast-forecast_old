@@ -110,3 +110,5 @@ venv.bak/
 
 # App security
 
+# Visual Studio Code
+.vscode
