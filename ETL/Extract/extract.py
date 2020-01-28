@@ -25,6 +25,8 @@ global zid
 global zlon
 global zlat
 global client
+global ref_time
+global rec_time
 
 API_key = key
 loc_host = loc_host
@@ -156,7 +158,9 @@ def current():
         :type current: dict
     '''
     global obs
+    global ref_time
     current = json.loads(obs.to_JSON()) # dump all that weather data to a json object
+    rec_time = current['reception_time']
     return(current)
 
 
@@ -166,7 +170,9 @@ def five_day():
         :return five_day: the five day, every three hours, forecast for the zip code
         :type five_day: dict
     '''
+    
     global obs, zlat, zlon, owm
+    
     try:
         forecaster = owm.three_hours_forecast_at_coords(zlat, zlon)
     except APIInvalidSSLCertificateError:
