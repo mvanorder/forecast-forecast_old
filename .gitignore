@@ -107,5 +107,5 @@ venv.bak/
 # DS_Store
 .DS_Store
 
-# App security
-
+# collection log
+forecast_collection_log.txt
