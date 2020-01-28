@@ -13,16 +13,14 @@ from pyowm import OWM
 from pyowm.weatherapi25.forecast import Forecast
 from pyowm.exceptions.api_response_error import NotFoundError
 from pyowm.exceptions.api_call_error import APICallTimeoutError, APIInvalidSSLCertificateError
-from pprint import pprint
 from pymongo import MongoClient
 from pymongo.collection import Collection
 from pymongo.errors import ConnectionFailure, InvalidDocument, DuplicateKeyError, OperationFailure
 from urllib.parse import quote
-from config import OWM_API_key as key, connection_port, user, loc_host, remo_host, password, socket_path
+from config import OWM_API_key as key, connection_port, user, password, socket_path
 
 global zipcode
 global obs
-global reception_time
 global zid
 global zlon
 global zlat
@@ -70,14 +68,14 @@ def make_zip_list(state):
                 successes+=1
                 time.sleep(.9)
             except APIInvalidSSLCertificateError:
-                print("except", f'APIInvalidSSLCertificateError with zipcode {zipp}...trying again')
+                print(f'except first try: APIInvalidSSLCertificateError with zipcode {zipp}...trying again')
                 set_location(zipp)
                 success_zips.append(zipp)
                 successes+=1
                 print('this time it worked')
                 time.sleep(.9)
             except APIInvalidSSLCertificateError:
-                print('same exception again...I will reestablishing the OWM object.')
+                print('except on second try: APIInvalidSSLCertificateError - reestablishing the OWM object and trying again.')
                 owm = OWM(API_key)    # the OWM object
                 set_location(zipp)
                 success_zips.append(zipp)
@@ -128,19 +126,21 @@ def set_location(code):
     try:
         obs = owm.weather_at_zip_code(f'{code}', 'us')
     except APIInvalidSSLCertificateError:
-        print("except", f'APIInvalidSSLCertificateError with zipcode {code}...trying again')
+        print(f'except first try in set_location(): APIInvalidSSLCertificateError with zipcode {zipp}...trying again')
         obs = owm.weather_at_zip_code(f'{code}', 'us')        
         print('this time it worked')
     except APIInvalidSSLCertificateError:
-        print('same exception again...I will reestablishing the OWM object.')
+        print('except on second try in set_location(): APIInvalidSSLCertificateError - reestablishing the OWM object and trying again.')
         owm = OWM(API_key)    # the OWM object
         obs = owm.weather_at_zip_code(f'{code}', 'us')
         print('this time it worked')
     except APIInvalidSSLCertificateError:
         print('....and again... this time I am just gonna return.')
+        return
     except APICallTimeoutError:
         time.sleep(5)
         try:
+            print('caught APICallTimeoutError in set_location()')
             obs = owm.weather_at_zip_code(f'{code}', 'us')
         except APICallTimeoutError:
             print(f'could not get past the goddamn api call for {code}.')
@@ -170,27 +170,29 @@ def five_day():
         :return five_day: the five day, every three hours, forecast for the zip code
         :type five_day: dict
     '''
-    global obs, zlat, zlon, ref_time, owm
+    
+    global obs, zlat, zlon, owm
+    
     try:
         forecaster = owm.three_hours_forecast_at_coords(zlat, zlon)
     except APIInvalidSSLCertificateError:
-        print("except", f'APIInvalidSSLCertificateError ...trying again')
+        print(f'except on first try in firve_day(): APIInvalidSSLCertificateError ...trying again')
         forecaster = owm.three_hours_forecast_at_coords(zlat, zlon)
         print('this time it worked')
     except APIInvalidSSLCertificateError:
-        print('same exception again...try reestablishing the OWM object.')
+        print('except on second try five_day(): APIInvalidSSLCertificateReeor... reestablish the OWM object and try again.')
         owm = OWM(API_key)    # the OWM object
         forecaster = owm.three_hours_forecast_at_coords(zlat, zlon)
         print('this time it worked')
     except APIInvalidSSLCertificateError:
         print('....and again... this time I am just gonna return.')
-        return()    
+        return
     except APICallTimeoutError:
         time.sleep(.5)
-        print('caught APICallTimeoutError trying again...')
+        print('caught APICallTimeoutError in five_day(). trying again...')
         forecaster = owm.three_hours_forecast_at_coords(zlat, zlon)
     except APICallTimeoutError:
-        print('caught APICallTimeoutError...returning without another try.')
+        print('caught APICallTimeoutError in faive_day()...returning without another try.')
         return(time.time())
     forecast = forecaster.get_forecast()
     return(json.loads(forecast.to_JSON()))
@@ -213,17 +215,14 @@ def get_weather(codes, uri):
         weather.update({'_id': time.time(),
                      'zipcode': code,
                      'current': current(),
-                    #  'five_day': five_day()
                     })
         load(weather, client, 'weather')
         forecast.update({'_id': time.time(),
                      'zipcode': code,
-                    #  'current': current(),
                      'five_day': five_day()
                     })
         load(forecast, client, 'forecast')
     client.close()
-    # print('client closed')
     return
 
 
@@ -242,7 +241,6 @@ def check_db_access(uri):
     client = MongoClient(uri)    
     try:
         client.admin.command('ismaster')
-        # print('client open')
     except ConnectionFailure:
         print("Server not available")
         return
@@ -268,6 +266,8 @@ def to_json(data, code):
 
 
 def load(data, client, name):
+    # because this function is used in a loop, I want to name the variable, {name}, to be whatever the diciontary's
+    # name happens to be. That is getting set to a colleciton name 
     ''' Load the data to the database if possible, otherwise write to json file. 
         
         :param data: the dictionary created from the api calls
