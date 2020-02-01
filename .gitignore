@@ -117,4 +117,4 @@ forecast_collection_log.txt
 .vscode/
 
 # Database
-dump/*
+dump/
