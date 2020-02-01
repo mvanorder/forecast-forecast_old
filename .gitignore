@@ -110,7 +110,11 @@ venv.bak/
 
 # collection log
 forecast_collection_log.txt
+
 # App security
 
 # Visual Studio Code
 .vscode/
+
+# Database
+dump/*
