@@ -208,13 +208,13 @@ def get_weather(codes, uri):
         weather = {}
         forecast = {}
         set_location(code)
-        weather.update({'_id': time.time(),
+        weather.update({
                      'zipcode': code,
                      'current': current(),
                      'instant': instant
                     })
         load(weather, client, 'weather')
-        forecast.update({'_id': time.time(),
+        forecast.update({
                      'zipcode': code,
                      'five_day': five_day()
                     })
