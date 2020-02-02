@@ -191,8 +191,10 @@ def five_day():
         print('caught APICallTimeoutError in faive_day()...returning without another try.')
         return(time.time())
     forecast = forecaster.get_forecast()
-    return(json.loads(forecast.to_JSON()))
-
+    forecast = json.loads(forecast.to_JSON())
+    for f in forecast['weathers']:
+        f['instant'] = f.pop('reference_time')        
+    return(forecast)
 
 # def get_weather(codes, loc_host, port):
 def get_weather(codes, uri):
