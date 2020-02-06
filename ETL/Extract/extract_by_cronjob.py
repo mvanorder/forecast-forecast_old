@@ -193,7 +193,7 @@ def five_day():
     forecast = forecaster.get_forecast()
     forecast = json.loads(forecast.to_JSON())
     for f in forecast['weathers']:
-        f['instant'] = f.pop('reference_time')        
+        f['instant'] = f.pop('reference_time')
     return(forecast)
 
 # def get_weather(codes, loc_host, port):
@@ -206,7 +206,7 @@ def get_weather(codes, uri):
 #     client = check_db_access(loc_host, port)
     client = check_db_access(uri)
     for code in codes:
-        instant = int(10800*(time.time()//10800)) # the instant that each forecast refers to
+        instant = int(10800*(time.time()//10800 + 1)) # the instant that each forecast refers to
         weather = {}
         forecast = {}
         set_location(code)
