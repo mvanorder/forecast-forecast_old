@@ -25,8 +25,12 @@ global zid
 global zlon
 global zlat
 global client
+global ref_time
+global rec_time
 
 API_key = key
+# loc_host = loc_host
+# rem_host = remo_host
 port = connection_port
 owm = OWM(API_key)    # the OWM object
 password = quote(password)    # url encode the password for the mongodb uri
@@ -172,7 +176,7 @@ def five_day():
     try:
         forecaster = owm.three_hours_forecast_at_coords(zlat, zlon)
     except APIInvalidSSLCertificateError:
-        print(f'except on first try in five_day(): APIInvalidSSLCertificateError ...trying again')
+        print(f'except on first try in firve_day(): APIInvalidSSLCertificateError ...trying again')
         forecaster = owm.three_hours_forecast_at_coords(zlat, zlon)
         print('this time it worked')
     except APIInvalidSSLCertificateError:
@@ -190,11 +194,55 @@ def five_day():
     except APICallTimeoutError:
         print('caught APICallTimeoutError in faive_day()...returning without another try.')
         return(time.time())
-    forecast = forecaster.get_forecast()
-    forecast = json.loads(forecast.to_JSON())
-    for f in forecast['weathers']:
-        f['instant'] = f.pop('reference_time')        
-    return(forecast)
+    forecast = forecaster.get_forecast().to_JSON()
+    forecast = json.loads(forecast)
+    forecasts = forecast['weathers']
+    return(forecasts)
+
+
+def sort_casts(forecasts, code, client):
+    ''' Take the array of forecasts from the five day forecast and sort them into the documents of the instants collection.
+        
+        :param forecasts: the forecasts from five_day()-  They come in a list of 40, one for each of every thrid hour over five days
+        :type forecasts: list- expecting a list of forecasts
+        :param code: the zipcode
+        :type code: string
+        :param client: the mongodb client
+        :type client: MongoClient
+    '''
+#     client = check_db_access(loc_host, port)
+#     client = check_db_access(uri)
+    db = client.OWM
+    col = db.instant
+    
+    for forecast in forecasts:
+        # filter out the unneeded data  ##### I should have popped out the stuff I don't need
+        forecast = {'reference_time': forecast['reference_time'],
+              'clouds': forecast['clouds'],
+              'rain': forecast['rain'],
+              'snow': forecast['snow'],
+              'wind': forecast['wind'],
+              'humidity': forecast['humidity'],
+              'pressure': forecast['pressure'],
+              'tempurature': forecast['temperature'],
+              'status': forecast['status'],
+              'detailed_status': forecast['detailed_status'],
+              'weather_code': forecast['weather_code'],
+              'dewpint': forecast['dewpoint'],
+              'humidex': forecast['humidex'],
+              'heat_index': forecast['heat_index']}
+        # now find the document that has that code and that ref_time
+        # This should change to the instants collection, find a singel instant specified by zip and the
+        # forecast ref_time, and finally append the forecast to the forecasts object
+        filter_by_zip_and_inst = {'zipcode':code, 'instant':forecast['reference_time']}
+        filters = filter_by_zip_and_inst
+        add_forecast_to_instant = {'$push': {'forecasts': forecast}}
+        updates = add_forecast_to_instant
+        updated_doc = col.find_one_and_update(filters, updates, upsert=True, return_document=ReturnDocument.AFTER)
+#         print(updated_doc)
+#     client.close()
+#     query = instant_by_zip_and_inst
+#     query.append(forecast)
 
 # def get_weather(codes, loc_host, port):
 def get_weather(codes, uri):
@@ -202,21 +250,58 @@ def get_weather(codes, uri):
     
     :param codes: list of zip codes
     :type codes: list of strings
+    :param uri: the uri for the database connection
+    :type uri: string
     '''
 #     client = check_db_access(loc_host, port)
     client = check_db_access(uri)
+    try:
+        db = client.OWM
+    except AttributeError:
+        print('maybe did not make client connection...trying again.')
+        time.sleep(.5)
+        client = check_db_access(uri)
+        db = client.OWM
+        print('must have worked')
+    instant = {}
+    weather = {}
+    forecast = {}
     for code in codes:
-        instant = int(10800*(time.time()//10800)) # the instant that each forecast refers to
-        weather = {}
-        forecast = {}
         set_location(code)
-        weather.update({
+        Current = current() # returns json object
+        # create your weather object from the OWM weather object
+        weather = {'reference_time': Current['Weather']['reference_time'],
+                  'clouds': Current['Weather']['clouds'],
+                  'rain': Current['Weather']['rain'],
+                  'snow': Current['Weather']['snow'],
+                  'wind': Current['Weather']['wind'],
+                  'humidity': Current['Weather']['humidity'],
+                  'pressure': Current['Weather']['pressure'],
+                  'tempurature': Current['Weather']['temperature'],
+                  'status': Current['Weather']['status'],
+                  'detailed_status': Current['Weather']['detailed_status'],
+                  'weather_code': Current['Weather']['weather_code'],
+                  'dewpint': Current['Weather']['dewpoint'],
+                  'humidex': Current['Weather']['humidex'],
+                  'heat_index': Current['Weather']['heat_index']
+                  }                   
+        # Create and insert a new instant document for the current reference_time 
+        instant.update({'zipcode': code,
+                        'instant': 10800*(Current['Weather']['reference_time']//10800 + 1), # set the instant to the next reference instant
+                       'location': Current['Location']['coordinates'],
+                       'weather': weather,
+                       })
+        print(f'updated {instant}.')
+        load(instant, client, 'instant')
+        print('loaded instant')
+        forecasts = five_day() # list of json objects
+        sort_casts(forecasts, code, client)
+        weather.update({'reception_time': time.time(),
                      'zipcode': code,
-                     'current': current(),
-                     'instant': instant
+                     'current': Current,
                     })
         load(weather, client, 'weather')
-        forecast.update({
+        forecast.update({'reception_time': time.time(),
                      'zipcode': code,
                      'five_day': five_day()
                     })
@@ -265,47 +350,50 @@ def to_json(data, code):
 
 
 def load(data, client, name):
-    # because this function is used in a loop, I want to name the variable, {name}, to be whatever the diciontary's
-    # name happens to be. That is getting set to a colleciton name 
     ''' Load the data to the database if possible, otherwise write to json file. 
         
         :param data: the dictionary created from the api calls
         :type data: dict
         :param client: the pymongo client object
         :type client: MongoClient
+        :param name: the database collection to be used
+        :type name: 
     '''
+    insert_record = []
     if type(data) == dict:
         database = client.OWM
-        # name = name
         try:
             col = Collection(database, name)
-            # db = client.forcast
-            # col = db.code
-            col.insert_one(data)
+            filters = {'zipcode':data['zipcode'], 'instant':data['instant']}
+            upsert_record = col.update_one(filters, {'$setOnInsert': data})
+#             print(f'here is the upserted item id: {upsert_record.upserted_id}')
+            print(f"updated through 'zipcode':{data['zipcode']}, 'instant':{data['instant']}, {name}\n", insert_record)
         except DuplicateKeyError:
-            client.close()
-            print('closed db connection')
-            to_json(data, code)
-            print('Wrote to json')
+            print(f'DuplicateKeyError, could not insert to {name}')
+        except KeyError:
+#             to_json(data, code)
+#             print('Wrote to json')
+            pass
     else:
-        print('data type is not dict')
+        print('data is coming into load() not as a dict')
         client.close()
         print('closed db connection')
     return
 
 
 if __name__ == '__main__':
-    directory = os.path.join(os.environ['HOME'], 'data', 'forcast-forcast')
+    # directory = os.path.join(os.environ['HOME'], 'data', 'forecast-forecast')  # for macbook pro
+    directory = os.path.join(os.environ['HOME'], 'data', 'forcast-forcast')  # for macbook air
     filename = os.path.join(directory, 'ETL', 'Extract', 'resources', 'success_zipsNC.csv')
     codes = read_list_from_file(filename)
     num_zips = len(codes)
     i, n = 0, 0
     print(f'task began at {time.localtime()}')
-    while n < num_zips:
+    while n < 10: #num_zips:
         codeslice = codes[i:i+10]
         i += 10
         n += 10
-#         get_weather(codes, loc_host, port)
+    #         get_weather(codes, loc_host, port)
         get_weather(codeslice, uri)
         time.sleep(10)
     print(f'task ended at {time.localtime()}')
