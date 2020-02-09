@@ -29,8 +29,8 @@ global ref_time
 global rec_time
 
 API_key = key
-loc_host = loc_host
-rem_host = remo_host
+# loc_host = loc_host
+# rem_host = remo_host
 port = connection_port
 owm = OWM(API_key)    # the OWM object
 password = quote(password)    # url encode the password for the mongodb uri
@@ -195,7 +195,7 @@ def five_day():
         print('caught APICallTimeoutError in faive_day()...returning without another try.')
         return(time.time())
     forecast = forecaster.get_forecast()
-    return(json.loads(forecast.to_JSON()))
+    return(json.load(forecast.to_JSON()))
 
 
 # def get_weather(codes, loc_host, port):
@@ -204,6 +204,8 @@ def get_weather(codes, uri):
     
     :param codes: list of zip codes
     :type codes: list of strings
+    :param uri: the uri for the database connection
+    :type uri: string
     '''
 #     client = check_db_access(loc_host, port)
     client = check_db_access(uri)
@@ -274,6 +276,8 @@ def load(data, client, name):
         :type data: dict
         :param client: the pymongo client object
         :type client: MongoClient
+        :param name: the database collection to be used
+        :type name: 
     '''
     if type(data) == dict:
         database = client.OWM
