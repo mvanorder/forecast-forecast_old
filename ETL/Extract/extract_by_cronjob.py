@@ -14,7 +14,7 @@ from pyowm.weatherapi25.forecast import Forecast
 from pyowm.exceptions.api_response_error import NotFoundError
 from pyowm.exceptions.api_call_error import APICallTimeoutError, APIInvalidSSLCertificateError
 from pymongo import MongoClient
-from pymongo.collection import Collection
+from pymongo.collection import Collection, ReturnDocument
 from pymongo.errors import ConnectionFailure, InvalidDocument, DuplicateKeyError, OperationFailure
 from urllib.parse import quote
 from config import OWM_API_key as key, connection_port, user, password, socket_path
