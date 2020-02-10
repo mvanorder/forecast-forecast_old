@@ -382,6 +382,6 @@ if __name__ == '__main__':
         n += 10
 #         get_weather(codes, loc_host, port)
         get_weather(codeslice, uri)
-        time.sleep(10)
+#         time.sleep(10)
     print(f'task ended at {time.localtime()}')
 
