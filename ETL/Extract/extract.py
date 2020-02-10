@@ -8,6 +8,7 @@ import time
 import urllib
 import schedule
 import dns
+import pandas as pd
 
 from pyowm import OWM
 from pyowm.weatherapi25.forecast import Forecast
@@ -43,8 +44,6 @@ def make_zip_list(state):
         :returns success_zips: list of zip codes that OWM has records for
         :type success_zips: list
     '''
-    import pandas as pd
-    from pyowm.exceptions.api_response_error import NotFoundError
     
     global owm
     
@@ -146,7 +145,6 @@ def set_location(code):
     zlat = location.get_lat()
     return
 
-
 def current():
     ''' Dump the current weather to a json
 
@@ -156,7 +154,6 @@ def current():
     global obs
     current = json.loads(obs.to_JSON()) # dump all that weather data to a json object
     return(current)
-
 
 def five_day():
     ''' Get each weather forecast for the corrosponding zip code. 
@@ -192,7 +189,6 @@ def five_day():
     forecast = json.loads(forecast)
     forecasts = forecast['weathers']
     return(forecasts)
-
 
 def sort_casts(forecasts, code, client):
     ''' Take the array of forecasts from the five day forecast and sort them into the documents of the instants collection.
@@ -308,7 +304,6 @@ def check_db_access(uri):
         return
     return(client)
 
-
 def to_json(data, code):
     ''' Store the collected data as a json file in the case that the database
         is not connected or otherwise unavailable.
@@ -325,7 +320,6 @@ def to_json(data, code):
     Data.write(collection)
     Data.close()
     return
-
 
 def load(data, client, name):
     ''' Load the data to the database if possible, otherwise write to json file. 
@@ -352,7 +346,6 @@ def load(data, client, name):
         client.close()
         print('closed db connection')
     return
-
 
 
 if __name__ == '__main__':
