@@ -206,7 +206,8 @@ def sort_casts(forecasts, code, client):
     
     for forecast in forecasts:
         # filter out the unneeded data  ##### I should have popped out the stuff I don't need
-        forecast = {'reference_time': forecast['reference_time'],
+        forecast = {'reception_time': time.time(),
+              'reference_time': forecast['reference_time'],
               'clouds': forecast['clouds'],
               'rain': forecast['rain'],
               'snow': forecast['snow'],
@@ -263,22 +264,25 @@ def get_weather(codes, uri):
                   'heat_index': Current['Weather']['heat_index']
                   }                   
         # Create and insert a new instant document for the current reference_time 
-        instant.update({'zipcode': code,
+        instant.update({'last_update': time.time(),
+                        'zipcode': code,
                         'instant': 10800*(Current['Weather']['reference_time']//10800 + 1), # set the instant to the next reference instant
-                       'location': Current['Location']['coordinates'],
-                       'weather': weather,
+                        'location': Current['Location']['coordinates'],
+                        'weather': weather,
                        })
         load(instant, client, 'instant')
         forecasts = five_day() # list of json objects
         sort_casts(forecasts, code, client)
-        weather.update({'reception_time': time.time(),
-                     'zipcode': code,
-                     'current': Current,
+        weather.update({'instant': instant['instant'],
+                        'reception_time': time.time(),
+                        'zipcode': code,
+                        'current': Current
                     })
         load(weather, client, 'weather')
-        forecast.update({'reception_time': time.time(),
-                     'zipcode': code,
-                     'five_day': five_day()
+        forecast.update({'instant': instant['instant'],
+                         'reception_time': time.time(),
+                         'zipcode': code,
+                         'five_day': five_day()
                     })
         load(forecast, client, 'forecast')
     client.close()
@@ -333,14 +337,16 @@ def load(data, client, name):
     '''
     if type(data) == dict:
         database = client.OWM
+        col = Collection(database, name)
+        filters = {'zipcode':data['zipcode'], 'instant':data['instant']}
+        updates = {'$setOnInsert': data}
         try:
-            col = Collection(database, name)
-            filters = {'zipcode':data['zipcode'], 'instant':data['instant']}
-            col.update_one(filters, {'$setOnInsert': data})
+            # check to see if there is a document that fits the parameters. If there is, update it, if there isn't, upsert it
+            update = col.find_one_and_update(filters, updates,  upsert=True, return_document=ReturnDocument.BEFORE)
+            if update == None:
+                return
         except DuplicateKeyError:
             print(f'DuplicateKeyError, could not insert to {name}')
-        except KeyError:
-            pass
     else:
         print('data is coming into load() not as a dict')
         client.close()
