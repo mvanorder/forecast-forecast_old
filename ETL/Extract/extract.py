@@ -375,5 +375,5 @@ if __name__ == '__main__':
 #         get_weather(codes, loc_host, port)
         get_weather(codeslice, uri)
 #         time.sleep(10)
-    print(f'task ended at {time.time()}\n {time.localtime()}')
+    print(f'task ended at {time.time()}\n {time.localtime()}\n processed, like, {n} zipcodes')
 
