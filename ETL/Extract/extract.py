@@ -355,18 +355,25 @@ def load(data, client, name):
 
 
 if __name__ == '__main__':
-    directory = os.path.join(os.environ['HOME'], 'data', 'forecast-forecast')
-    filename = os.path.join(directory, 'ETL', 'Extract', 'resources', 'success_zipsNC.csv')
-    codes = read_list_from_file(filename)
+    try:
+        directory = os.path.join(os.environ['HOME'], 'data', 'forecast-forecast')
+        filename = os.path.join(directory, 'ETL', 'Extract', 'resources', 'success_zipsNC.csv')
+        codes = read_list_from_file(filename)
+    except FileNotFoundError:
+        print('caught filenotfounderror, trying forcast-forcast')
+        directory = os.path.join(os.environ['HOME'], 'data', 'forcast-forcast')
+        filename = os.path.join(directory, 'ETL', 'Extract', 'resources', 'success_zipsNC.csv')
+        codes = read_list_from_file(filename)
+        print('Got it')
     num_zips = len(codes)
     i, n = 0, 0
-    print(f'task began at {time.localtime()}')
-    while n < num_zips:
+    print(f'task began at {time.time()}\n {time.localtime()}')
+    while n < 10:# num_zips:
         codeslice = codes[i:i+10]
         i += 10
         n += 10
 #         get_weather(codes, loc_host, port)
         get_weather(codeslice, uri)
 #         time.sleep(10)
-    print(f'task ended at {time.localtime()}')
+    print(f'task ended at {time.time()}\n {time.localtime()}')
 
