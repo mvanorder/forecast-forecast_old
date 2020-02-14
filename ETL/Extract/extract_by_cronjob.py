@@ -207,6 +207,7 @@ def sort_casts(forecasts, code, client):
     for forecast in forecasts:
         # filter out the unneeded data  ##### I should have popped out the stuff I don't need
         forecast = {'reception_time': time.time(),
+              'time_to_instant': forecast['reference_time'] - int(time.time()),
               'reference_time': forecast['reference_time'],
               'clouds': forecast['clouds'],
               'rain': forecast['rain'],
