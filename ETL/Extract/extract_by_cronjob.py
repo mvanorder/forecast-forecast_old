@@ -8,6 +8,7 @@ import time
 import urllib
 import schedule
 import dns
+import pandas as pd
 
 from pyowm import OWM
 from pyowm.weatherapi25.forecast import Forecast
@@ -19,14 +20,10 @@ from pymongo.errors import ConnectionFailure, InvalidDocument, DuplicateKeyError
 from urllib.parse import quote
 from config import OWM_API_key as key, connection_port, user, password, socket_path
 
-global zipcode
-global obs
-global zid
-global zlon
-global zlat
-global client
-global ref_time
-global rec_time
+zipcode = str
+zlon = float
+zlat = float
+client = MongoClient()
 
 API_key = key
 # loc_host = loc_host
@@ -47,8 +44,6 @@ def make_zip_list(state):
         :returns success_zips: list of zip codes that OWM has records for
         :type success_zips: list
     '''
-    import pandas as pd
-    from pyowm.exceptions.api_response_error import NotFoundError
     
     global owm
     
@@ -126,7 +121,7 @@ def set_location(code):
     try:
         obs = owm.weather_at_zip_code(f'{code}', 'us')
     except APIInvalidSSLCertificateError:
-        print(f'except first try in set_location(): APIInvalidSSLCertificateError with zipcode {zipp}...trying again')
+        print(f'except first try in set_location(): APIInvalidSSLCertificateError with zipcode {code}...trying again')
         obs = owm.weather_at_zip_code(f'{code}', 'us')        
         print('this time it worked')
     except APIInvalidSSLCertificateError:
@@ -150,7 +145,6 @@ def set_location(code):
     zlat = location.get_lat()
     return
 
-
 def current():
     ''' Dump the current weather to a json
 
@@ -158,11 +152,8 @@ def current():
         :type current: dict
     '''
     global obs
-    global ref_time
     current = json.loads(obs.to_JSON()) # dump all that weather data to a json object
-    rec_time = current['reception_time']
     return(current)
-
 
 def five_day():
     ''' Get each weather forecast for the corrosponding zip code. 
@@ -192,13 +183,12 @@ def five_day():
         print('caught APICallTimeoutError in five_day(). trying again...')
         forecaster = owm.three_hours_forecast_at_coords(zlat, zlon)
     except APICallTimeoutError:
-        print('caught APICallTimeoutError in faive_day()...returning without another try.')
+        print('caught APICallTimeoutError in five_day()...returning without another try.')
         return(time.time())
     forecast = forecaster.get_forecast().to_JSON()
     forecast = json.loads(forecast)
     forecasts = forecast['weathers']
     return(forecasts)
-
 
 def sort_casts(forecasts, code, client):
     ''' Take the array of forecasts from the five day forecast and sort them into the documents of the instants collection.
@@ -210,14 +200,13 @@ def sort_casts(forecasts, code, client):
         :param client: the mongodb client
         :type client: MongoClient
     '''
-#     client = check_db_access(loc_host, port)
-#     client = check_db_access(uri)
     db = client.OWM
     col = db.instant
     
     for forecast in forecasts:
         # filter out the unneeded data  ##### I should have popped out the stuff I don't need
-        forecast = {'reference_time': forecast['reference_time'],
+        forecast = {'reception_time': time.time(),
+              'reference_time': forecast['reference_time'],
               'clouds': forecast['clouds'],
               'rain': forecast['rain'],
               'snow': forecast['snow'],
@@ -238,11 +227,7 @@ def sort_casts(forecasts, code, client):
         filters = filter_by_zip_and_inst
         add_forecast_to_instant = {'$push': {'forecasts': forecast}}
         updates = add_forecast_to_instant
-        updated_doc = col.find_one_and_update(filters, updates, upsert=True, return_document=ReturnDocument.AFTER)
-#         print(updated_doc)
-#     client.close()
-#     query = instant_by_zip_and_inst
-#     query.append(forecast)
+        col.find_one_and_update(filters, updates, upsert=True, return_document=ReturnDocument.AFTER)
 
 # def get_weather(codes, loc_host, port):
 def get_weather(codes, uri):
@@ -286,29 +271,29 @@ def get_weather(codes, uri):
                   'heat_index': Current['Weather']['heat_index']
                   }                   
         # Create and insert a new instant document for the current reference_time 
-        instant.update({'zipcode': code,
+        instant.update({'last_update': time.time(),
+                        'zipcode': code,
                         'instant': 10800*(Current['Weather']['reference_time']//10800 + 1), # set the instant to the next reference instant
-                       'location': Current['Location']['coordinates'],
-                       'weather': weather,
+                        'location': Current['Location']['coordinates'],
+                        'weather': weather,
                        })
-        print(f'updated {instant}.')
         load(instant, client, 'instant')
-        print('loaded instant')
         forecasts = five_day() # list of json objects
         sort_casts(forecasts, code, client)
-        weather.update({'reception_time': time.time(),
-                     'zipcode': code,
-                     'current': Current,
+        weather.update({'instant': instant['instant'],
+                        'reception_time': time.time(),
+                        'zipcode': code,
+                        'current': Current
                     })
         load(weather, client, 'weather')
-        forecast.update({'reception_time': time.time(),
-                     'zipcode': code,
-                     'five_day': five_day()
+        forecast.update({'instant': instant['instant'],
+                         'reception_time': time.time(),
+                         'zipcode': code,
+                         'five_day': five_day()
                     })
         load(forecast, client, 'forecast')
     client.close()
     return
-
 
 # def check_db_access(loc_host, port):
 def check_db_access(uri):
@@ -330,7 +315,6 @@ def check_db_access(uri):
         return
     return(client)
 
-
 def to_json(data, code):
     ''' Store the collected data as a json file in the case that the database
         is not connected or otherwise unavailable.
@@ -348,7 +332,6 @@ def to_json(data, code):
     Data.close()
     return
 
-
 def load(data, client, name):
     ''' Load the data to the database if possible, otherwise write to json file. 
         
@@ -362,18 +345,16 @@ def load(data, client, name):
     insert_record = []
     if type(data) == dict:
         database = client.OWM
+        col = Collection(database, name)
+        filters = {'zipcode':data['zipcode'], 'instant':data['instant']}
+        updates = {'$setOnInsert': data}
         try:
-            col = Collection(database, name)
-            filters = {'zipcode':data['zipcode'], 'instant':data['instant']}
-            upsert_record = col.update_one(filters, {'$setOnInsert': data})
-#             print(f'here is the upserted item id: {upsert_record.upserted_id}')
-            print(f"updated through 'zipcode':{data['zipcode']}, 'instant':{data['instant']}, {name}\n", insert_record)
+            # check to see if there is a document that fits the parameters. If there is, update it, if there isn't, upsert it
+            update = col.find_one_and_update(filters, updates,  upsert=True, return_document=ReturnDocument.BEFORE)
+            if update == None:
+                return
         except DuplicateKeyError:
             print(f'DuplicateKeyError, could not insert to {name}')
-        except KeyError:
-#             to_json(data, code)
-#             print('Wrote to json')
-            pass
     else:
         print('data is coming into load() not as a dict')
         client.close()
@@ -395,6 +376,6 @@ if __name__ == '__main__':
         n += 10
     #         get_weather(codes, loc_host, port)
         get_weather(codeslice, uri)
-        time.sleep(10)
+#         time.sleep(10)
     print(f'task ended at {time.localtime()}')
 
