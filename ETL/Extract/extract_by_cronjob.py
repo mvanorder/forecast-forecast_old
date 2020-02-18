@@ -143,7 +143,9 @@ def set_location(code):
     location = obs.get_location()
     zlon = location.get_lon()
     zlat = location.get_lat()
-    return
+    return({'lat': zlat,
+            'lon': zlon
+            })
 
 def current():
     ''' Dump the current weather to a json
@@ -190,6 +192,30 @@ def five_day():
     forecasts = forecast['weathers']
     return(forecasts)
 
+def insert_instant(weather, code, client, location):
+    ''' Insert anew instant object to the database
+
+        :param weather: the weather object returned by the current() function
+        :type weather: json object
+        :param code: the zipcode of the instant
+        :type code: string
+        :param client: the mongodb client
+        :type client: pymongo.MongoClient
+    '''
+    instant = {'last_update': time.time(),
+                'zipcode': code,
+                'instant': 10800*(weather['reference_time']//10800 + 1), # set the instant to the next reference instant
+                'location': location
+                }
+    db = client.test
+    col = db.instant
+    try:
+        col.insert_one(instant)
+    except:
+        print(f'exception inserting instant at {code} and {instant["instant"]}')
+    return
+
+
 def sort_casts(forecasts, code, client):
     ''' Take the array of forecasts from the five day forecast and sort them into the documents of the instants collection.
         
@@ -200,9 +226,8 @@ def sort_casts(forecasts, code, client):
         :param client: the mongodb client
         :type client: MongoClient
     '''
-    db = client.OWM
+    db = client.test
     col = db.instant
-    
     for forecast in forecasts:
         # filter out the unneeded data  ##### I should have popped out the stuff I don't need
         forecast = {'reception_time': time.time(),
@@ -229,6 +254,24 @@ def sort_casts(forecasts, code, client):
         updates = add_forecast_to_instant
         col.find_one_and_update(filters, updates, upsert=True, return_document=ReturnDocument.AFTER)
 
+def insert_weather(weather, code, client):
+    ''' Insert anew instant object to the database
+
+        :param weather: the weather object returned by the current() function
+        :type weather: json object
+        :param code: the zipcode of the instant
+        :type code: string
+        :param client: the mongodb client
+        :type client: pymongo.MongoClient
+    '''
+    db = client.test
+    col = db.instant
+    filter_by_zip_and_inst = {'zipcode':code, 'instant':weather['reference_time']}
+    filters = filter_by_zip_and_inst
+    add_weather_to_instant = {"$set": { 'weather': weather}}
+    updates = add_weather_to_instant
+    col.find_one_and_update(filters, updates, upsert=True, return_document=ReturnDocument.AFTER)
+
 # def get_weather(codes, loc_host, port):
 def get_weather(codes, uri):
     ''' Get the weather from the API and load it to the database. 
@@ -241,19 +284,20 @@ def get_weather(codes, uri):
 #     client = check_db_access(loc_host, port)
     client = check_db_access(uri)
     try:
-        db = client.OWM
+        db = client.test
     except AttributeError:
         print('maybe did not make client connection...trying again.')
         time.sleep(.5)
         client = check_db_access(uri)
-        db = client.OWM
+        db = client.test
         print('must have worked')
-    instant = {}
-    weather = {}
-    forecast = {}
+    # instant = {}
+    # weather = {}
+    # forecast = {}
     for code in codes:
-        set_location(code)
+        location = set_location(code)
         Current = current() # returns json object
+        forecasts = five_day() # list of json objects
         # create your weather object from the OWM weather object
         weather = {'reference_time': Current['Weather']['reference_time'],
                   'clouds': Current['Weather']['clouds'],
@@ -269,29 +313,22 @@ def get_weather(codes, uri):
                   'dewpint': Current['Weather']['dewpoint'],
                   'humidex': Current['Weather']['humidex'],
                   'heat_index': Current['Weather']['heat_index']
-                  }                   
-        # Create and insert a new instant document for the current reference_time 
-        instant.update({'last_update': time.time(),
-                        'zipcode': code,
-                        'instant': 10800*(Current['Weather']['reference_time']//10800 + 1), # set the instant to the next reference instant
-                        'location': Current['Location']['coordinates'],
-                        'weather': weather,
-                       })
-        load(instant, client, 'instant')
-        forecasts = five_day() # list of json objects
+                  }
+        insert_instant(weather, code, client, location)
         sort_casts(forecasts, code, client)
-        weather.update({'instant': instant['instant'],
-                        'reception_time': time.time(),
-                        'zipcode': code,
-                        'current': Current
-                    })
-        load(weather, client, 'weather')
-        forecast.update({'instant': instant['instant'],
-                         'reception_time': time.time(),
-                         'zipcode': code,
-                         'five_day': five_day()
-                    })
-        load(forecast, client, 'forecast')
+        insert_weather(weather, code,client)
+        # weather.update({'instant': instant['instant'],
+        #                 'reception_time': time.time(),
+        #                 'zipcode': code,
+        #                 'current': Current
+        #             })
+        # load(weather, client, 'weather')
+        # forecast.update({'instant': instant['instant'],
+        #                  'reception_time': time.time(),
+        #                  'zipcode': code,
+        #                  'five_day': five_day()
+        #             })
+        # load(forecast, client, 'forecast')
     client.close()
     return
 
@@ -344,7 +381,7 @@ def load(data, client, name):
     '''
     insert_record = []
     if type(data) == dict:
-        database = client.OWM
+        database = client.test
         col = Collection(database, name)
         filters = {'zipcode':data['zipcode'], 'instant':data['instant']}
         updates = {'$setOnInsert': data}
@@ -370,6 +407,10 @@ if __name__ == '__main__':
     num_zips = len(codes)
     i, n = 0, 0
     print(f'task began at {time.localtime()}')
+    client = MongoClient(uri)
+    db = client.test
+    instant = db.instant
+    db.drop_collection(instant)
     while n < 10: #num_zips:
         codeslice = codes[i:i+10]
         i += 10
@@ -377,5 +418,6 @@ if __name__ == '__main__':
     #         get_weather(codes, loc_host, port)
         get_weather(codeslice, uri)
 #         time.sleep(10)
+    client.close()
     print(f'task ended at {time.localtime()}')
 
