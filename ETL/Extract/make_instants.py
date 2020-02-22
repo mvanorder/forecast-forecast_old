@@ -44,6 +44,7 @@ def set_location_and_get_current(code):
     global owm
     
     try:
+	# All of this block is to handle the errors encountered from the API call to OpenWeatherMaps
         obs = owm.weather_at_zip_code(f'{code}', 'us')
     except APIInvalidSSLCertificateError:
         print(f'except first try in set_location(): APIInvalidSSLCertificateError with zipcode {code}...trying again')
@@ -74,7 +75,9 @@ def set_location_and_get_current(code):
             except APICallTimeoutError:
                 print(f'could not get past the goddamn api call for {code}! Returning with nothing but shame this time.')
                 return(f'the time is {time.time()}')
-    current = json.loads(obs.to_JSON())
+    
+    # transform the data into the weather object needed in the database
+    current = json.loads(obs.to_JSON()) # the current weather for the given zipcode
     # update the 'current' object with the fields needed for making the processing data
     current['instant'] = 10800*(current['Weather']['reference_time']//10800 + 1)
     current['location'] = current['Location']['coordinates']
@@ -201,7 +204,7 @@ def load(data, client, name):
         print('Do something about the data coming into load() not as a dict')
         return(data, client, name)
 
-
+__name__ = '__main__'
 if __name__ == '__main__':
     directory = os.path.join(os.environ['HOME'], 'data', 'forecast-forecast')  # for macbook pro
 #     directory = os.path.join(os.environ['HOME'], 'data', 'forcast-forcast')  # for macbook air
