@@ -162,7 +162,7 @@ def sort_casts(forecasts, code, client):
         :param client: the mongodb client
         :type client: MongoClient
     '''
-    db = client.test
+    db = client.OWM
     col = db.instant
     # update each forecast and insert it to the instant document with the matching instant_time and zipcode
     for forecast in forecasts:
@@ -185,7 +185,7 @@ def load(data, client, name):
         :param name: the database collection to be used
         :type name: str
     '''
-    database = client.test
+    database = client.OWM
     col = Collection(database, name)
     if type(data) == dict:
         filters = {'zipcode':data['zipcode'], 'instant':data['instant']}
@@ -206,9 +206,16 @@ def load(data, client, name):
 
 __name__ = '__main__'
 if __name__ == '__main__':
-    directory = os.path.join(os.environ['HOME'], 'data', 'forecast-forecast')  # for macbook pro
-#     directory = os.path.join(os.environ['HOME'], 'data', 'forcast-forcast')  # for macbook air
-    filename = os.path.join(directory, 'ETL', 'Extract', 'resources', 'success_zipsNC.csv')
+    try:
+        directory = os.path.join(os.environ['HOME'], 'data', 'forcast-forcast')
+        filename = os.path.join(directory, 'ETL', 'Extract', 'resources', 'success_zipsNC.csv')
+        codes = read_list_from_file(filename)
+    except FileNotFoundError:
+        print('caught filenotfounderror, trying forcast-forcast')
+        directory = os.path.join(os.environ['HOME'], 'data', 'forecast-forecast')
+        filename = os.path.join(directory, 'ETL', 'Extract', 'resources', 'success_zipsNC.csv')
+        codes = read_list_from_file(filename)
+        print('Got it')
     codes = read_list_from_file(filename)
     num_zips = len(codes)
     i, n = 0, 0
