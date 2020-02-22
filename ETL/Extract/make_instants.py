@@ -49,7 +49,7 @@ def set_location_and_get_current(code):
     except APIInvalidSSLCertificateError:
         print(f'except first try in set_location(): APIInvalidSSLCertificateError with zipcode {code}...trying again')
         try:
-            obs = owm.weather_at_zip_code(f'{code}', 'us')        
+            obs = owm.weather_at_zip_code(f'{code}', 'us')
             print('this time it worked')
         except APIInvalidSSLCertificateError:
             print('except on second try in set_location(): APIInvalidSSLCertificateError - reestablishing the OWM object and trying again.')
@@ -95,7 +95,7 @@ def set_location_and_get_current(code):
 
 
 def five_day(zlat, zlon):
-    ''' Get each weather forecast for the corrosponding zip code. 
+    ''' Get each weather forecast for the corrosponding zip code.
     
         :return five_day: the five day, every three hours, forecast for the zip code
         :type five_day: dict
@@ -176,14 +176,14 @@ def sort_casts(forecasts, code, client):
 
         
 def load(data, client, name):
-    ''' Load the data to the database if possible, otherwise write to json file. 
+    ''' Load the data to the database if possible, otherwise write to json file.
         
         :param data: the dictionary created from the api calls
         :type data: dict
         :param client: the pymongo client object
         :type client: MongoClient
         :param name: the database collection to be used
-        :type name: 
+        :type name: str
     '''
     database = client.test
     col = Collection(database, name)
