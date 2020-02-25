@@ -44,12 +44,11 @@ def set_location_and_get_current(code):
     global owm
     
     try:
-	# All of this block is to handle the errors encountered from the API call to OpenWeatherMaps
         obs = owm.weather_at_zip_code(f'{code}', 'us')
     except APIInvalidSSLCertificateError:
         print(f'except first try in set_location(): APIInvalidSSLCertificateError with zipcode {code}...trying again')
         try:
-            obs = owm.weather_at_zip_code(f'{code}', 'us')
+            obs = owm.weather_at_zip_code(f'{code}', 'us')        
             print('this time it worked')
         except APIInvalidSSLCertificateError:
             print('except on second try in set_location(): APIInvalidSSLCertificateError - reestablishing the OWM object and trying again.')
@@ -75,9 +74,7 @@ def set_location_and_get_current(code):
             except APICallTimeoutError:
                 print(f'could not get past the goddamn api call for {code}! Returning with nothing but shame this time.')
                 return(f'the time is {time.time()}')
-    
-    # transform the data into the weather object needed in the database
-    current = json.loads(obs.to_JSON()) # the current weather for the given zipcode
+    current = json.loads(obs.to_JSON())
     # update the 'current' object with the fields needed for making the processing data
     current['instant'] = 10800*(current['Weather']['reference_time']//10800 + 1)
     current['location'] = current['Location']['coordinates']
@@ -95,7 +92,7 @@ def set_location_and_get_current(code):
 
 
 def five_day(zlat, zlon):
-    ''' Get each weather forecast for the corrosponding zip code.
+    ''' Get each weather forecast for the corrosponding zip code. 
     
         :return five_day: the five day, every three hours, forecast for the zip code
         :type five_day: dict
@@ -176,20 +173,20 @@ def sort_casts(forecasts, code, client):
 
         
 def load(data, client, name):
-    ''' Load the data to the database if possible, otherwise write to json file.
+    ''' Load the data to the database if possible, otherwise write to json file. 
         
         :param data: the dictionary created from the api calls
         :type data: dict
         :param client: the pymongo client object
         :type client: MongoClient
         :param name: the database collection to be used
-        :type name: str
+        :type name: 
     '''
     database = client.OWM
     col = Collection(database, name)
     if type(data) == dict:
         filters = {'zipcode':data['zipcode'], 'instant':data['instant']}
-        updates = {'$setOnInsert': data}
+        updates = {'$set': {'weather': data['Weather']}} # Add the data to the specified document
         try:
             # check to see if there is a document that fits the parameters. If there is, update it, if there isn't, upsert it
             update = col.find_one_and_update(filters, updates,  upsert=True, return_document=ReturnDocument.BEFORE)
@@ -204,7 +201,7 @@ def load(data, client, name):
         print('Do something about the data coming into load() not as a dict')
         return(data, client, name)
 
-__name__ = '__main__'
+
 if __name__ == '__main__':
     try:
         directory = os.path.join(os.environ['HOME'], 'data', 'forcast-forcast')
@@ -222,11 +219,13 @@ if __name__ == '__main__':
     print(f'task began at {time.localtime()}')
     client = MongoClient(uri)
     for code in codes[:1]:
-        current = set_location_and_get_current(code)
-        load(current, client, 'instant')
-        zlat = current['location']['lat']
-        zlon = current['location']['lon']
-        forecasts = five_day(zlat, zlon)
-        sort_casts(forecasts, code, client)
+        if n%2 == 1:
+            current = set_location_and_get_current(code)
+            zlat = current['location']['lat']
+            zlon = current['location']['lon']
+            forecasts = five_day(zlat, zlon)
+            sort_casts(forecasts, code, client)
+            load(current, client, 'instant')
+        n+=1
     client.close()
     print(f'task ended at {time.localtime()}')
