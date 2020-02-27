@@ -25,6 +25,48 @@ uri = "mongodb+srv://%s:%s@%s" % (user, password, socket_path)
 print(uri)
 
 
+def ssl_err(owm):
+    ''' handle the APIInvalidSSLCertificateError from the pyowm module by try and try again method 
+
+    :param owm: the pyowm connection object
+    :type owm: OWM API certificate
+'''
+    print(f'except first try in set_location(): APIInvalidSSLCertificateError with zipcode {code}...trying again')
+    try:
+        obs = owm.weather_at_zip_code(f'{code}', 'us')
+        print('this time it worked')
+    except APIInvalidSSLCertificateError:
+        print('except on second try in set_location(): APIInvalidSSLCertificateError - reestablishing the OWM object and trying again.')
+        try:
+            owm = OWM(API_key)    # the OWM object
+            obs = owm.weather_at_zip_code(f'{code}', 'us')
+            print('this time it worked')
+        except APIInvalidSSLCertificateError:
+            print('....and again... this time I am just gonna return.')
+            return(f'the time is {time.time()}')
+
+def timeout_err(owm):
+    ''' handle the APIInvalidSSLCertificateError from the pyowm module by try and try again method 
+
+    :param owm: the pyowm connection object
+    :type owm: OWM API certificate
+    '''
+    print('caught APICallTimeoutError on first try in set_location()...trying again')
+    time.sleep(5)
+    try:
+        obs = owm.weather_at_zip_code(f'{code}', 'us')
+        print('this time it worked')
+    except APICallTimeoutError:
+        time.sleep(5)
+        print('caught APICallTimeoutError on second try in set_location()...trying again')
+        try:
+            obs = owm.weather_at_zip_code(f'{code}', 'us')
+            print('this time it worked')
+        except APICallTimeoutError:
+            print(f'could not get past the goddamn api call for {code}! Returning with nothing but shame this time.')
+            return(f'the time is {time.time()}')
+
+    
 def read_list_from_file(filename):
     """ Read the zip codes list from the csv file.
         
@@ -51,35 +93,9 @@ def set_location_and_get_current(code):
 	# All of this block is to handle the errors encountered from the API call to OpenWeatherMaps
         obs = owm.weather_at_zip_code(f'{code}', 'us')
     except APIInvalidSSLCertificateError:
-        print(f'except first try in set_location(): APIInvalidSSLCertificateError with zipcode {code}...trying again')
-        try:
-            obs = owm.weather_at_zip_code(f'{code}', 'us')
-            print('this time it worked')
-        except APIInvalidSSLCertificateError:
-            print('except on second try in set_location(): APIInvalidSSLCertificateError - reestablishing the OWM object and trying again.')
-            try:
-                owm = OWM(API_key)    # the OWM object
-                obs = owm.weather_at_zip_code(f'{code}', 'us')
-                print('this time it worked')
-            except APIInvalidSSLCertificateError:
-                print('....and again... this time I am just gonna return.')
-                return(f'the time is {time.time()}')
+        ssl_err(owm)
     except APICallTimeoutError:
-        print('caught APICallTimeoutError on first try in set_location()...trying again')
-        time.sleep(5)
-        try:
-            obs = owm.weather_at_zip_code(f'{code}', 'us')
-            print('this time it worked')
-        except APICallTimeoutError:
-            time.sleep(5)
-            print('caught APICallTimeoutError on second try in set_location()...trying again')
-            try:
-                obs = owm.weather_at_zip_code(f'{code}', 'us')
-                print('this time it worked')
-            except APICallTimeoutError:
-                print(f'could not get past the goddamn api call for {code}! Returning with nothing but shame this time.')
-                return(f'the time is {time.time()}')
-    
+        timeout_err(owm)
     # transform the data into the weather object needed in the database
     current = json.loads(obs.to_JSON()) # the current weather for the given zipcode
     # update the 'current' object with the fields needed for making the processing data
@@ -109,32 +125,9 @@ def five_day(zlat, zlon):
     try:
         forecaster = owm.three_hours_forecast_at_coords(zlat, zlon)
     except APIInvalidSSLCertificateError:
-        print(f'except on first try in five_day(): APIInvalidSSLCertificateError ...trying again')
-        try:
-            forecaster = owm.three_hours_forecast_at_coords(zlat, zlon)
-            print('this time it worked')
-        except APIInvalidSSLCertificateError:
-            print('except on second try five_day(): APIInvalidSSLCertificateReeor... reestablish the OWM object and try again.')
-            try:
-                owm = OWM(API_key)    # the OWM object
-                forecaster = owm.three_hours_forecast_at_coords(zlat, zlon)
-                print('this time it worked')
-            except APIInvalidSSLCertificateError:
-                print('....and again... this time I am just gonna return.')
-                return(f'the time is {time.time()}')
+        ssl_err(owm)
     except APICallTimeoutError:
-        print('caught APICallTimeoutError on fritst try in five_day(). trying again...')
-        time.sleep(.5)
-        try:
-            forecaster = owm.three_hours_forecast_at_coords(zlat, zlon)
-        except APICallTimeoutError:
-            print('caught APICallTimeoutError on second try in five_day(). trying again...')
-            time.sleep(.5)
-            try:
-                forecaster = owm.three_hours_forecast_at_coords(zlat, zlon)
-            except APICallTimeoutError:
-                print('caught APICallTimeoutError on third try in five_day()...returning without another try.')
-                return(f'the time is {time.time()}')
+        timeout_err(owm)
     # Get the actual forecasts and add them to a list to be passed on while changing the key 'reference_time' to 'instant'
     forecast = forecaster.get_forecast()
     f = json.loads(forecast.to_JSON())
@@ -231,7 +224,7 @@ if __name__ == '__main__':
     i, n = 0, 0
     print(f'task began at {time.localtime()}')
     client = MongoClient(uri)
-    for code in codes:
+    for code in codes[:2]:
         if n%2 == 1:
             current = set_location_and_get_current(code)
             zlat = current['location']['lat']
