@@ -241,4 +241,4 @@ if __name__ == '__main__':
             load(current, client, 'instant')
         n+=1
     client.close()
-    print(f'task ended at {time.localtime()}')
+    print(f'task ended at {time.localtime()} and processed like {n/2} zipcodes')
