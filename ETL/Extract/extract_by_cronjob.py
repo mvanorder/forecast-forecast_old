@@ -15,6 +15,7 @@ from urllib.parse import quote
 from config import OWM_API_key as key, port, host, user, password, socket_path
 
 
+#
 API_key = key
 owm = OWM(API_key) # the OWM object
 print(type(owm))
@@ -44,7 +45,6 @@ def set_location_and_get_current(code):
     :return: the modified weather object
     :type: json
     '''
-
     global owm
     
     try:
@@ -228,16 +228,17 @@ if __name__ == '__main__':
         print('Got it')
     codes = read_list_from_file(filename)
     num_zips = len(codes)
-    n = 0
+    i, n = 0, 0
     print(f'task began at {time.localtime()}')
     client = MongoClient(uri)
-    for code in codes[:10]:
-        current = set_location_and_get_current(code)
-        zlat = current['location']['lat']
-        zlon = current['location']['lon']
-        forecasts = five_day(zlat, zlon)
-        sort_casts(forecasts, code, client)
-        load(current, client, 'instant')
-        n += 1
+    for code in codes:
+        if n%2 == 1:
+            current = set_location_and_get_current(code)
+            zlat = current['location']['lat']
+            zlon = current['location']['lon']
+            forecasts = five_day(zlat, zlon)
+            sort_casts(forecasts, code, client)
+            load(current, client, 'instant')
+        n+=1
     client.close()
-    print(f'task ended at {time.localtime()}, processed like {n} zipcodes')
+    print(f'task ended at {time.localtime()}')
