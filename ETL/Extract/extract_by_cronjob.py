@@ -1,129 +1,59 @@
-''' This program collects weather data from OpenWeatherMaps API and stores it in a database.
-the data collection happens every 3 hours (the granularity of the weather data available).
-'''
-
-import json
 import os
+import json
 import time
-import urllib
-# import dns
-# import pandas as pd
 
 from pyowm import OWM
 from pyowm.weatherapi25.forecast import Forecast
 from pyowm.exceptions.api_response_error import NotFoundError
 from pyowm.exceptions.api_call_error import APICallTimeoutError, APIInvalidSSLCertificateError
+
 from pymongo import MongoClient
 from pymongo.collection import Collection, ReturnDocument
 from pymongo.errors import ConnectionFailure, InvalidDocument, DuplicateKeyError, OperationFailure
 from urllib.parse import quote
-from config import OWM_API_key as key, connection_port, user, password, socket_path
 
-zipcode = str
-zlon = float
-zlat = float
-client = MongoClient()
+from config import OWM_API_key as key, port, host, user, password, socket_path
+
 
 API_key = key
-# loc_host = loc_host
-# rem_host = remo_host
-port = connection_port
-owm = OWM(API_key)    # the OWM object
+owm = OWM(API_key) # the OWM object
+print(type(owm))
+
 password = quote(password)    # url encode the password for the mongodb uri
 uri = "mongodb+srv://%s:%s@%s" % (user, password, socket_path)
 print(uri)
 
-def make_zip_list(state):
-    ''' Make a list of zip codes in the specified state.
-        Read zip codes from downloadable zip codes csv file available at https://www.unitedstateszipcodes.org/
-        
-        :param state: the two-letter abreviation of the state whose zip codes you'd like listed
-        :type state: string
-        
-        :returns success_zips: list of zip codes that OWM has records for
-        :type success_zips: list
-    '''
-    
-    global owm
-    
-    successes = 0
-    exceptions = 0
-    success_zips = []
-    fail_zips = []
-    
-    df = pd.read_csv("resources/zip_code_database.csv")
-    # Make a datafram from the rows with the specified state and write the 'zip' column to a list 
-    zip_list = df.loc[lambda df: df['state'] == f'{state.upper()}']['zip'].tolist()
-    for zipp in zip_list:
-        if int(zipp) > 10000:
-            try:
-                set_location(zipp)
-                success_zips.append(zipp)
-                successes+=1
-                time.sleep(.9)
-            except APIInvalidSSLCertificateError:
-                print(f'except first try: APIInvalidSSLCertificateError with zipcode {zipp}...trying again')
-                set_location(zipp)
-                success_zips.append(zipp)
-                successes+=1
-                print('this time it worked')
-                time.sleep(.9)
-            except APIInvalidSSLCertificateError:
-                print('except on second try: APIInvalidSSLCertificateError - reestablishing the OWM object and trying again.')
-                owm = OWM(API_key)    # the OWM object
-                set_location(zipp)
-                success_zips.append(zipp)
-                successes+=1
-                print('this time it worked')
-                time.sleep(.9)
-            except APIInvalidSSLCertificateError:
-                print('....and again... this time I am just gonna pass.')
-                pass
-            except NotFoundError:
-                print("except", f'NotFoundError with zipcode {zipp}')
-                fail_zips.append(zipp)
-                exceptions+=1
-                pass
-    write_list_to_file(success_zips, f'resources/success_zips{state}.csv')
-    write_list_to_file(fail_zips, f'resources/fail_zips{state}.csv')
-    print(f'successes = {successes}; exceptions = {exceptions}, all written to files')
-    return(success_zips)
 
-def write_list_to_file(zip_list, filename):
-    """ Write the zip codes to csv file.
-        
-        :param zip_list: the list created from the zip codes dataframe
-        :type zip_list: list stings
-        :param filename: the name of the file
-        :type filename: sting
-    """
-    with open(filename, "w") as z_list:
-        z_list.write(",".join(str(z) for z in zip_list))
-    return
-        
 def read_list_from_file(filename):
     """ Read the zip codes list from the csv file.
         
-        :param filename: the name of the file
-        :type filename: sting
+    :param filename: the name of the file
+    :type filename: sting
     """
     with open(filename, "r") as z_list:
         return z_list.read().strip().split(',')
+        
 
 def set_location_and_get_current(code):
-    ''' Get the latitude and longitude corrosponding to the zip code.
-        
-        :param code: the zip code to find weather data about
-        :type code: string
+    ''' Get the current weather for the given zipcode and create the weather object that will be used in the instant object
+    and set the latitude and longitude corrosponding to the zip code.
+
+    :param code: the zip code to find weather data about
+    :type code: string
+
+    :return: the modified weather object
+    :type: json
     '''
+
     global owm
     
     try:
+	# All of this block is to handle the errors encountered from the API call to OpenWeatherMaps
         obs = owm.weather_at_zip_code(f'{code}', 'us')
     except APIInvalidSSLCertificateError:
         print(f'except first try in set_location(): APIInvalidSSLCertificateError with zipcode {code}...trying again')
         try:
-            obs = owm.weather_at_zip_code(f'{code}', 'us')        
+            obs = owm.weather_at_zip_code(f'{code}', 'us')
             print('this time it worked')
         except APIInvalidSSLCertificateError:
             print('except on second try in set_location(): APIInvalidSSLCertificateError - reestablishing the OWM object and trying again.')
@@ -149,7 +79,9 @@ def set_location_and_get_current(code):
             except APICallTimeoutError:
                 print(f'could not get past the goddamn api call for {code}! Returning with nothing but shame this time.')
                 return(f'the time is {time.time()}')
-    current = json.loads(obs.to_JSON())
+    
+    # transform the data into the weather object needed in the database
+    current = json.loads(obs.to_JSON()) # the current weather for the given zipcode
     # update the 'current' object with the fields needed for making the processing data
     current['instant'] = 10800*(current['Weather']['reference_time']//10800 + 1)
     current['location'] = current['Location']['coordinates']
@@ -163,17 +95,15 @@ def set_location_and_get_current(code):
     current['Weather'].pop('dewpoint')
     current['Weather'].pop('humidex')
     current['Weather'].pop('heat_index')
-
-#     print(current)
     return(current)
 
+
 def five_day(zlat, zlon):
-    ''' Get each weather forecast for the corrosponding zip code. 
+    ''' Get each weather forecast for the corrosponding zip code.
     
-        :return five_day: the five day, every three hours, forecast for the zip code
-        :type five_day: dict
+    :return five_day: the five day, every three hours, forecast for the zip code
+    :type five_day: dict
     '''
-    
     global owm
     
     try:
@@ -229,13 +159,17 @@ def five_day(zlat, zlon):
 def sort_casts(forecasts, code, client):
     ''' Take the array of forecasts from the five day forecast and sort them into the documents of the instants collection.
         
-        :param forecasts: the forecasts from five_day()-  They come in a list of 40, one for each of every thrid hour over five days
-        :type forecasts: list- expecting a list of forecasts
-        :param code: the zipcode
-        :type code: string
-        :param client: the mongodb client
-        :type client: MongoClient
+    :param forecasts: the forecasts from five_day()-  They come in a list of 40, one for each of every thrid hour over five days
+    :type forecasts: list- expecting a list of forecasts
+    :param code: the zipcode
+    :type code: string
+    :param client: the mongodb client
+    :type client: MongoClient
     '''
+    # global host
+    # global port
+
+    client = MongoClient(host=host, port=port)
     db = client.test
     col = db.instant
     # update each forecast and insert it to the instant document with the matching instant_time and zipcode
@@ -247,90 +181,63 @@ def sort_casts(forecasts, code, client):
         add_forecast_to_instant = {'$push': {'forecasts': forecast}} # append the forecast object to the forecasts list
         updates = add_forecast_to_instant
         updated = col.find_one_and_update(filters, updates, upsert=True, return_document=ReturnDocument.AFTER)
-    return
 
-
-# def check_db_access(loc_host, port):
-def check_db_access(uri):
-    ''' Check the database connection and return the client
-    
-        :param host: the database host
-        :type host: string
-        :param port: the database connection port
-        :type port: int
-        :param uri: the conneciton uri for the remote mongo database
-        :type uri: sting
-    '''
-#     client = MongoClient(host=host, port=port)
-    client = MongoClient(uri)    
-    try:
-        client.admin.command('ismaster')
-    except ConnectionFailure:
-        print("Server not available")
-        return
-    return(client)
-
-def to_json(data, code):
-    ''' Store the collected data as a json file in the case that the database
-        is not connected or otherwise unavailable.
         
-        :param data: the dictionary created from the api calls
-        :type data: dict
-        :param code: the zip code associated with the data from the list codes
-        :type code: sting
-    '''
-    collection = data
-    directory = os.getcwd()
-    save_path = os.path.join(directory, 'Data', f'{code}.json')
-    Data = open(save_path, 'a+')
-    Data.write(collection)
-    Data.close()
-    return
-
 def load(data, client, name):
-    ''' Load the data to the database if possible, otherwise write to json file. 
+    ''' Add the observed weather to the corrosponding instant document and load it to the remote database 
         
-        :param data: the dictionary created from the api calls
-        :type data: dict
-        :param client: the pymongo client object
-        :type client: MongoClient
-        :param name: the database collection to be used
-        :type name: 
+    :param data: the dictionary created from the api calls
+    :type data: dict
+    :param client: the pymongo client object
+    :type client: MongoClient
+    :param name: the database collection to be used
+    :type name: str
     '''
-    database = client.test
+    
+    global uri
+
+    # connect to the local database and search for the matching instant document and update it
+    client =  MongoClient(host=host, port=port)
+    database = client.OWM
     col = Collection(database, name)
-    if type(data) == dict:
-        filters = {'zipcode':data['zipcode'], 'instant':data['instant']}
-        updates = {'$setOnInsert': data}
-        try:
-            # check to see if there is a document that fits the parameters. If there is, update it, if there isn't, upsert it
-            update = col.find_one_and_update(filters, updates,  upsert=True, return_document=ReturnDocument.BEFORE)
-            if update == None:
-                print(f'upserted document to {name} according to the filter {filters}')
-                return
-            else:
-                print(f'updated document in {name} according to the filter {filters}')
-        except DuplicateKeyError:
-            return(f'DuplicateKeyError, could not insert {data} into {name}')
-    else:
-        print('Do something about the data coming into load() not as a dict')
-        return(data, client, name)
+    filters = {'zipcode':data['zipcode'], 'instant':data['instant']}
+    updates = {'$set': data['Weather']} # use only the weather object from the current weather created from the API call
+    try:
+        # check to see if there is a document that fits the parameters. If there is, update it, if there isn't, upsert it
+        update = col.find_one_and_update(filters, updates,  upsert=True, return_document=ReturnDocument.AFTER)
+        # switch tho the remote database and load the new document to it
+        client = MongoClient(uri)
+        database =  client.test
+        col = Collection(database, name)
+        loaded = col.insert_one(update)
+    except DuplicateKeyError:
+        return(f'DuplicateKeyError, could not insert {data} into {name}')
+    
 
-
+__name__ = '__main__'
 if __name__ == '__main__':
-    # Run everything. Read the zip codes from the zipcode list and call the weather and forecasts and load them to the database
-#     directory = os.path.join(os.environ['HOME'], 'data', 'forecast-forecast')  # for macbook pro
-    directory = os.path.join(os.environ['HOME'], 'data', 'forcast-forcast')  # for macbook air
-    filename = os.path.join(directory, 'ETL', 'Extract', 'resources', 'success_zipsNC.csv')
+    try:
+        directory = os.path.join(os.environ['HOME'], 'data', 'forcast-forcast')
+        filename = os.path.join(directory, 'ETL', 'Extract', 'resources', 'success_zipsNC.csv')
+        codes = read_list_from_file(filename)
+    except FileNotFoundError:
+        print('caught filenotfounderror, trying forcast-forcast')
+        directory = os.path.join(os.environ['HOME'], 'data', 'forecast-forecast')
+        filename = os.path.join(directory, 'ETL', 'Extract', 'resources', 'success_zipsNC.csv')
+        codes = read_list_from_file(filename)
+        print('Got it')
     codes = read_list_from_file(filename)
+    num_zips = len(codes)
+    n = 0
     print(f'task began at {time.localtime()}')
     client = MongoClient(uri)
-    for code in codes[0]:
+    for code in codes[:10]:
         current = set_location_and_get_current(code)
         zlat = current['location']['lat']
         zlon = current['location']['lon']
-        load(current, client, 'instant')
         forecasts = five_day(zlat, zlon)
         sort_casts(forecasts, code, client)
+        load(current, client, 'instant')
+        n += 1
     client.close()
-    print(f'task ended at {time.localtime()}')
+    print(f'task ended at {time.localtime()}, processed like {n} zipcodes')
