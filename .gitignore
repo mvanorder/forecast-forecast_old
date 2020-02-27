@@ -118,3 +118,4 @@ forecast_collection_log.txt
 
 # Database
 dump/
+instants.csv
