@@ -7,6 +7,20 @@ from pyowm.weatherapi25.forecast import Forecast
 from pyowm.exceptions.api_response_error import NotFoundError
 from pyowm.exceptions.api_call_error import APICallTimeoutError, APIInvalidSSLCertificateError
 
+def get_data_from_weather_api(owm, request_type, zipcode=None, coords=None):
+    result = None
+    try:
+        if coords:
+            result = owm.three_hours_forecast_at_coords(*coords)
+        elif zipcode:
+            result = owm.weather_at_zip_code(zipcode, 'us')
+    except APIInvalidSSLCertificateError:
+        ssl_err(owm, which)
+    except APICallTimeoutError:
+        timeout_err(owm, which)
+    return result
+
+
 def ssl_err(owm, which):
     ''' handle the APIInvalidSSLCertificateError from the pyowm module by try and try again method 
 

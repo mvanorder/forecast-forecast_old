@@ -13,7 +13,7 @@ from pymongo.errors import ConnectionFailure, InvalidDocument, DuplicateKeyError
 from urllib.parse import quote
 
 from config import OWM_API_key as key, port, host, user, password, socket_path
-from errors import ssl_err, timeout_err 
+from errors import ssl_err, timeout_err, get_data_from_weather_api
 
 
 API_key = key
@@ -47,13 +47,7 @@ def set_location_and_get_current(code):
     '''
     global owm
     
-    which = 'weather'
-    try:
-        obs = owm.weather_at_zip_code(f'{code}', 'us')
-    except APIInvalidSSLCertificateError:
-        ssl_err(owm, which)
-    except APICallTimeoutError:
-        timeout_err(owm, which)
+    obs = get_data_from_weather_api(owm, 'weather', zipcode=str(code))
     # transform the data into the weather object needed in the database
     current = json.loads(obs.to_JSON()) # the current weather for the given zipcode
     # update the 'current' object with the fields needed for making the processing data
@@ -80,13 +74,7 @@ def five_day(zlat, zlon):
     '''
     global owm
 
-    which = 'forecast' 
-    try:
-        forecaster = owm.three_hours_forecast_at_coords(zlat, zlon)
-    except APIInvalidSSLCertificateError:
-        ssl_err(owm, which)
-    except APICallTimeoutError:
-        timeout_err(owm, which)
+    forecaster = get_data_from_weather_api(owm, 'forecast', coords=(zlat, zlon))
     # Get the actual forecasts and add them to a list to be passed on while changing the key 'reference_time' to 'instant'
     forecast = forecaster.get_forecast()
     f = json.loads(forecast.to_JSON())
@@ -163,10 +151,9 @@ def load(data, client, name):
         col = Collection(database, name)
         loaded = col.insert_one(update)
     except DuplicateKeyError:
-        return(f'DuplicateKeyError, could not insert {data} into {name}')
+        return(f'DuplicateKeyError, could not insert data into {name}.')
     
 
-__name__ = '__main__'
 if __name__ == '__main__':
     try:
         directory = os.path.join(os.environ['HOME'], 'data', 'forcast-forcast')
@@ -183,7 +170,7 @@ if __name__ == '__main__':
     i, n = 0, 0
     print(f'task began at {time.localtime()}')
     client = MongoClient(uri)
-    for code in codes:
+    for code in codes[:2]:
         print(f'processing th {n}th')
         current = set_location_and_get_current(code)
         zlat = current['location']['lat']
