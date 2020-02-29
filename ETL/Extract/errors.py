@@ -7,7 +7,22 @@ from pyowm.weatherapi25.forecast import Forecast
 from pyowm.exceptions.api_response_error import NotFoundError
 from pyowm.exceptions.api_call_error import APICallTimeoutError, APIInvalidSSLCertificateError
 
+
 def get_data_from_weather_api(owm, request_type, zipcode=None, coords=None):
+    ''' Handle the API call errors for weatehr and forecast type calls.
+
+    :param owm: the OWM API object
+    :type owm: pyowm.OWM
+    :param request_type: should be either 'forecast' or 'weather' to direct the API calls
+    :type request_type: string
+    :param zipcode: the zipcode reference for the API call
+    :type zipcode: string
+    :param coords: the latitude and longitude coordinates reference for the API call
+    :type coords: 2-tuple
+
+    returns: the API data
+    '''
+    
     result = None
     try:
         if coords:
