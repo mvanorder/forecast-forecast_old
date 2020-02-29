@@ -1,6 +1,7 @@
 import os
 import json
 import time
+from urllib.parse import quote
 
 from pyowm import OWM
 from pyowm.weatherapi25.forecast import Forecast
@@ -10,10 +11,8 @@ from pyowm.exceptions.api_call_error import APICallTimeoutError, APIInvalidSSLCe
 from pymongo import MongoClient
 from pymongo.collection import Collection, ReturnDocument
 from pymongo.errors import ConnectionFailure, InvalidDocument, DuplicateKeyError, OperationFailure
-from urllib.parse import quote
 
 from config import OWM_API_key as key, port, host, user, password, socket_path
-from errors import ssl_err, timeout_err, get_data_from_weather_api
 
 
 API_key = key
@@ -25,6 +24,40 @@ uri = "mongodb+srv://%s:%s@%s" % (user, password, socket_path)
 print(uri)
 
    
+def get_data_from_weather_api(owm, request_type, zipcode=None, coords=None):
+    ''' Handle the API call errors for weatehr and forecast type calls.
+
+    :param owm: the OWM API object
+    :type owm: pyowm.OWM
+    :param request_type: should be either 'forecast' or 'weather' to direct the API calls
+    :type request_type: string
+    :param zipcode: the zipcode reference for the API call
+    :type zipcode: string
+    :param coords: the latitude and longitude coordinates reference for the API call
+    :type coords: 2-tuple
+
+    returns: the API data
+    '''
+
+    result = None
+    tries = 1
+    while result is None and tries <= 3:
+        try:
+            if coords:
+                result = owm.three_hours_forecast_at_coords(*coords)
+            elif zipcode:
+                result = owm.weather_at_zip_code(zipcode, 'us')
+        except APIInvalidSSLCertificateError:
+            loc = zipcode or 'lat: {}, lon: {}'.format(str(coords[0]), str(coords[1]))
+            print(f'SSL error with {loc} on attempt {tries} ...trying again')
+            # ssl_err(owm, which)
+        except APICallTimeoutError:
+            loc = zipcode or 'lat: {}, lon: {}'.format(str(coords[0]), str(coords[1]))
+            print(f'Timeout error with {loc} on attempt {tries}... trying again')
+            # timeout_err(owm, which)
+        tries += 1
+    return result
+
 def read_list_from_file(filename):
     """ Read the zip codes list from the csv file.
         
@@ -33,7 +66,6 @@ def read_list_from_file(filename):
     """
     with open(filename, "r") as z_list:
         return z_list.read().strip().split(',')
-        
 
 def set_location_and_get_current(code):
     ''' Get the current weather for the given zipcode and create the weather object that will be used in the instant object
@@ -170,7 +202,7 @@ if __name__ == '__main__':
     i, n = 0, 0
     print(f'task began at {time.localtime()}')
     client = MongoClient(uri)
-    for code in codes[:2]:
+    for code in codes:
         print(f'processing th {n}th')
         current = set_location_and_get_current(code)
         zlat = current['location']['lat']
