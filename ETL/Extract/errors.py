@@ -2,6 +2,8 @@
 
 import time
 
+from pyowm import OWM
+from pyowm.weatherapi25.forecast import Forecast
 from pyowm.exceptions.api_response_error import NotFoundError
 from pyowm.exceptions.api_call_error import APICallTimeoutError, APIInvalidSSLCertificateError
 

@@ -16,7 +16,6 @@ from config import OWM_API_key as key, port, host, user, password, socket_path
 from errors import ssl_err, timeout_err 
 
 
-
 API_key = key
 owm = OWM(API_key) # the OWM object
 print(type(owm))
@@ -48,13 +47,13 @@ def set_location_and_get_current(code):
     '''
     global owm
     
+    which = 'weather'
     try:
-	# All of this block is to handle the errors encountered from the API call to OpenWeatherMaps
         obs = owm.weather_at_zip_code(f'{code}', 'us')
     except APIInvalidSSLCertificateError:
-        ssl_err(owm)
+        ssl_err(owm, which)
     except APICallTimeoutError:
-        timeout_err(owm)
+        timeout_err(owm, which)
     # transform the data into the weather object needed in the database
     current = json.loads(obs.to_JSON()) # the current weather for the given zipcode
     # update the 'current' object with the fields needed for making the processing data
@@ -80,13 +79,14 @@ def five_day(zlat, zlon):
     :type five_day: dict
     '''
     global owm
-    
+
+    which = 'forecast' 
     try:
         forecaster = owm.three_hours_forecast_at_coords(zlat, zlon)
     except APIInvalidSSLCertificateError:
-        ssl_err(owm)
+        ssl_err(owm, which)
     except APICallTimeoutError:
-        timeout_err(owm)
+        timeout_err(owm, which)
     # Get the actual forecasts and add them to a list to be passed on while changing the key 'reference_time' to 'instant'
     forecast = forecaster.get_forecast()
     f = json.loads(forecast.to_JSON())
@@ -118,11 +118,11 @@ def sort_casts(forecasts, code, client):
     :param client: the mongodb client
     :type client: MongoClient
     '''
-    # global host
-    # global port
+    global host
+    global port
 
     client = MongoClient(host=host, port=port)
-    db = client.test
+    db = client.OWM
     col = db.instant
     # update each forecast and insert it to the instant document with the matching instant_time and zipcode
     for forecast in forecasts:
@@ -159,7 +159,7 @@ def load(data, client, name):
         update = col.find_one_and_update(filters, updates,  upsert=True, return_document=ReturnDocument.AFTER)
         # switch tho the remote database and load the new document to it
         client = MongoClient(uri)
-        database =  client.test
+        database =  client.OWM
         col = Collection(database, name)
         loaded = col.insert_one(update)
     except DuplicateKeyError:
@@ -183,14 +183,14 @@ if __name__ == '__main__':
     i, n = 0, 0
     print(f'task began at {time.localtime()}')
     client = MongoClient(uri)
-    for code in codes[:2]:
-        if n%2 == 1:
-            current = set_location_and_get_current(code)
-            zlat = current['location']['lat']
-            zlon = current['location']['lon']
-            forecasts = five_day(zlat, zlon)
-            sort_casts(forecasts, code, client)
-            load(current, client, 'instant')
+    for code in codes:
+        print(f'processing th {n}th')
+        current = set_location_and_get_current(code)
+        zlat = current['location']['lat']
+        zlon = current['location']['lon']
+        forecasts = five_day(zlat, zlon)
+        sort_casts(forecasts, code, client)
+        load(current, client, 'instant')
         n+=1
     client.close()
-    print(f'task ended at {time.localtime()} and processed like {n/2} zipcodes')
+    print(f'task ended at {time.localtime()} and processed like {n} zipcodes')
