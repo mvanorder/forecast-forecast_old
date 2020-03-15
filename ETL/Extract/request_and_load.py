@@ -144,17 +144,25 @@ if __name__ == '__main__':
         codes = read_list_from_file(filename)
     codes = read_list_from_file(filename)
     num_zips = len(codes)
-    n = 0 #For keeping track of the number of API calls made; it has to be limited to a maximum of 60/minute.
-    start_time = time.time()
+    start_start = time.time()
     print(f'task began at {start_time}')
     local_client = MongoClient(host=host, port=port)
-    for code in codes[:60]:
+    start_time = time.time()
+    i, n = 0, 0 #i for coundting zipcodes processed and n for counting API calls made; API calss limited to a maximum of 60/minute.
+    for code in codes[:120]:
         current = get_current_weather(code)
         n+=1
         load(current, local_client, 'test', 'observed')
         coords = current['Location']['coordinates']
         forecasts = five_day(code, coords=coords)
-        load(forecasts, local_client, 'test', 'forecasted')
         n+=1
+        load(forecasts, local_client, 'test', 'forecasted')
+        # Wait for the next 60 seconds to resume making API calls
+        if n==60 and time.time()-start_time <= 60:
+            print(f'Waiting {60 - time.time() + start_time} seconds before resuming API calls.')
+            time.sleep(60 - time.time() + start_time)
+            start_time = time.time()
+            n = 0
+        i+=1
     local_client.close()
-    print(f'task took {time.time() -  start_time} seconds and processed like {n/2} zipcodes')
+    print(f'task took {time.time() -  start_start} seconds and processed like {n/2} zipcodes')
