@@ -132,6 +132,7 @@ def load(data, client, database, collection):
     except DuplicateKeyError:
         return(f'DuplicateKeyError, could not insert data into {name}.')
 
+
 if __name__ == '__main__':
     # Try block to deal with the switching back anc forth between computers with different directory names
     try:
@@ -149,20 +150,30 @@ if __name__ == '__main__':
     local_client = MongoClient(host=host, port=port)
     start_time = time.time()
     i, n = 0, 0 #i for coundting zipcodes processed and n for counting API calls made; API calss limited to a maximum of 60/minute.
-    for code in codes[:120]:
-        current = get_current_weather(code)
-        n+=1
-        load(current, local_client, 'test', 'observed')
-        coords = current['Location']['coordinates']
-        forecasts = five_day(code, coords=coords)
-        n+=1
-        load(forecasts, local_client, 'test', 'forecasted')
+    for code in codes[120:180]:
+        # try blocks are to help keep the loop going even if it's not getting back what it wants.
+        try:
+            current = get_current_weather(code)
+            n+=1
+            load(current, local_client, 'test', 'observed')
+            coords = current['Location']['coordinates']
+        except APICallTimeoutError or APIInvalidSSLCertificateError:
+            print(f'could not get or load observation data for {code}, moving to next loop iteration.')
+            n+=1
+            continue
+        try:
+            forecasts = five_day(code, coords=coords)
+            n+=1
+            load(forecasts, local_client, 'test', 'forecasted')
+        except APICallTimeoutError or APIInvalidSSLCertificateError:
+            print(f'could not get or load forecast data for {code}, moving to next loop iteration.')
+            n+=1
+            continue
         # Wait for the next 60 seconds to resume making API calls
         if n==60 and time.time()-start_time <= 60:
-            print(f'Waiting {60 - time.time() + start_time} seconds before resuming API calls.')
             time.sleep(60 - time.time() + start_time)
             start_time = time.time()
             n = 0
         i+=1
     local_client.close()
-    print(f'task took {time.time() -  start_start} seconds and processed like {n/2} zipcodes')
+    print(f'task took {time.time() -  start_start} seconds and processed {i} zipcodes')
