@@ -1,4 +1,4 @@
-''' This will get only the data from the weather api and load it to the approriate database '''
+''' This will only get the data from the weather api, make a few edits, and load it to the local database '''
 
 import os
 import json
@@ -14,10 +14,12 @@ from pymongo.collection import Collection, ReturnDocument
 from pymongo.database import Database
 from pymongo.errors import ConnectionFailure, InvalidDocument, DuplicateKeyError, OperationFailure
 
-from config import OWM_API_key as key, port, user, password, socket_path
+from config import OWM_API_key_loohoo as loohoo_key, OWM_API_key_masta as masta_key
+from config import port, host, user, password, socket_path
 
 
-owm = OWM(key)  # the owm objects for the separate api keys
+owm_loohoo = OWM(loohoo_key)  # the owm objects for the separate api keys
+owm_masta = OWM(masta_key)  # the owm objects for the separate api keys
 port = port
 host = host
 
@@ -39,27 +41,27 @@ def get_data_from_weather_api(owm, zipcode=None, coords=None):
     :param zipcode: the zipcode reference for the API call
     :type zipcode: string
     :param coords: the latitude and longitude coordinates reference for the API call
-    :type coords: 2-tuple
+    :type coords: 2-tuple 
 
     returns: the API data
     '''
     result = None
     tries = 1
-    while result is None and tries <= 3:
+    while result is None and tries < 4:
         try:
             if coords:
                 result = owm.three_hours_forecast_at_coords(**coords)
             elif zipcode:
                 result = owm.weather_at_zip_code(zipcode, 'us')
         except APIInvalidSSLCertificateError:
-            loc = zipcode or 'lat: {}, lon: {}'.format(str(coords[0]), str(coords[1]))
+            loc = zipcode or 'lat: {}, lon: {}'.format(coords[lat], coords[lon])
             print(f'SSL error with {loc} on attempt {tries} ...trying again')
         except APICallTimeoutError:
-            loc = zipcode or 'lat: {}, lon: {}'.format(str(coords[0]), str(coords[1]))
+            loc = zipcode or 'lat: {}, lon: {}'.format(coords[lat], coords[lon])
             print(f'Timeout error with {loc} on attempt {tries}... waiting 1 second then trying again')
             time.sleep(1)
         tries += 1
-    if tries == 3:
+    if tries == 4:
         print('tried 3 times without response; breaking out and causing an error that will crash your current colleciton process...fix that!')
         return
     return result
@@ -75,7 +77,8 @@ def get_current_weather(code=None, coords=None):
     :return: the raw weather object
     :type: json
     '''
-    global owm
+    global owm_loohoo
+    owm = owm_loohoo
 
     result = get_data_from_weather_api(owm, zipcode=code)
     current = json.loads(result.to_JSON()) # the current weather for the given zipcode
@@ -95,7 +98,8 @@ def five_day(code=None, coords=None):
     :return five_day: the five day, every three hours, forecast for the zip code
     :type five_day: dict
     '''
-    global owm
+    global owm_masta
+    owm = owm_masta
 
     Forecast = get_data_from_weather_api(owm, coords=coords).get_forecast()
     forecast = json.loads(Forecast.to_JSON())
@@ -145,11 +149,11 @@ if __name__ == '__main__':
     codes = read_list_from_file(filename)
     num_zips = len(codes)
     start_start = time.time()
-    print(f'task began at {start_time}')
+    print(f'task began at {start_start}')
     local_client = MongoClient(host=host, port=port)
     start_time = time.time()
     i, n = 0, 0 #i for coundting zipcodes processed and n for counting API calls made; API calss limited to a maximum of 60/minute.
-    for code in codes[:120]:
+    for code in codes[:10]:
         current = get_current_weather(code)
         n+=1
         load(current, local_client, 'test', 'observed')
@@ -158,7 +162,7 @@ if __name__ == '__main__':
         n+=1
         load(forecasts, local_client, 'test', 'forecasted')
         # Wait for the next 60 seconds to resume making API calls
-        if n==60 and time.time()-start_time <= 60:
+        if n==120 and time.time()-start_time <= 60:
             print(f'Waiting {60 - time.time() + start_time} seconds before resuming API calls.')
             time.sleep(60 - time.time() + start_time)
             start_time = time.time()
