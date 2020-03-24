@@ -84,9 +84,9 @@ def get_current_weather(code=None, coords=None):
     current = json.loads(result.to_JSON()) # the current weather for the given zipcode
     if code:
         current['zipcode'] = code
-    if coords:
-        current['coords'] = coords
+    current['coordinates'] = current['Location']['coordinates']
     current['instant'] = 10800*(current['Weather']['reference_time']//10800 + 1)
+    current.pop('Location')
     return current
 
 def five_day(code=None, coords=None):
@@ -107,9 +107,10 @@ def five_day(code=None, coords=None):
         forecast['zipcode'] = code
     if coords:
         forecast['coordinates'] = coords
-    forecast['instant'] = 10800*(forecast['reception_time']//10800 + 1)
     forecast.pop('Location')
     forecast.pop('interval')
+    for cast in forecast['weathers']:
+        cast['instant'] = cast.pop('reference_time')
     return forecast
 
 def load(data, client, database, collection):
