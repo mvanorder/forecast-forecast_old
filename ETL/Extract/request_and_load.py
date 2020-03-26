@@ -54,10 +54,16 @@ def get_data_from_weather_api(owm, zipcode=None, coords=None):
             elif zipcode:
                 result = owm.weather_at_zip_code(zipcode, 'us')
         except APIInvalidSSLCertificateError:
-            loc = zipcode or 'lat: {}, lon: {}'.format(coords[lat], coords[lon])
+            loc = zipcode or 'lat: {}, lon: {}'.format(coords['lat'], coords['lon'])
             print(f'SSL error with {loc} on attempt {tries} ...trying again')
+            if coords:
+                owm_loohoo = OWM(loohoo_key)
+                owm = owm_loohoo
+            elif zipcode:
+                owm_masta = OWM(masta_key)
+                owm = owm_masta
         except APICallTimeoutError:
-            loc = zipcode or 'lat: {}, lon: {}'.format(coords[lat], coords[lon])
+            loc = zipcode or 'lat: {}, lon: {}'.format(coords['lat'], coords['lon'])
             print(f'Timeout error with {loc} on attempt {tries}... waiting 1 second then trying again')
             time.sleep(1)
         tries += 1
@@ -80,7 +86,10 @@ def get_current_weather(code=None, coords=None):
     global owm_loohoo
     owm = owm_loohoo
 
-    result = get_data_from_weather_api(owm, zipcode=code)
+    try:
+        result = get_data_from_weather_api(owm, zipcode=code)
+    except APICallTimeoutError:
+        owm
     current = json.loads(result.to_JSON()) # the current weather for the given zipcode
     if code:
         current['zipcode'] = code
@@ -109,6 +118,7 @@ def five_day(code=None, coords=None):
         forecast['coordinates'] = coords
     forecast.pop('Location')
     forecast.pop('interval')
+    forecast['instant'] = forecast['reception_time']
     for cast in forecast['weathers']:
         cast['instant'] = cast.pop('reference_time')
     return forecast
@@ -155,12 +165,20 @@ if __name__ == '__main__':
     local_client = MongoClient(host=host, port=port)
     start_time = time.time()
     i, n = 0, 0 #i for coundting zipcodes processed and n for counting API calls made; API calss limited to a maximum of 60/minute.
-    for code in codes[:10]:
-        current = get_current_weather(code)
+    for code in codes:
+        try:
+            current = get_current_weather(code)
+        except AttributeError:
+            print(f'got AttributeError while collecting current weather for {code}. Continuing to next code.')
+            continue
         n+=1
         load(current, local_client, 'test', 'observed')
-        coords = current['Location']['coordinates']
-        forecasts = five_day(code, coords=coords)
+        coords = current['coordinates']
+        try:
+            forecasts = five_day(code, coords=coords)
+        except AttributeError:
+            print(f'got AttributeError while collecting forecasts for {code}. Continuing to next code.')
+            continue
         n+=1
         load(forecasts, local_client, 'test', 'forecasted')
         # Wait for the next 60 seconds to resume making API calls
