@@ -118,8 +118,10 @@ def five_day(code=None, coords=None):
         forecast['coordinates'] = coords
     forecast.pop('Location')
     forecast.pop('interval')
+    reception_time = forecast['reception_time'] # this is going to be added to the weathers array
     for cast in forecast['weathers']:
         cast['instant'] = cast.pop('reference_time')
+        cast['reception_time'] = reception_time
     return forecast
 
 def load(data, client, database, collection):
