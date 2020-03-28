@@ -59,8 +59,8 @@ def Client(host=None, port=None, uri=None):
             print('connection made with local server, even though you asked for the remote server')
             return client
 
-def find_forecasts(client, database, collection, filters={}):
-    ''' Find the forecasts in the database collection using the filters.
+def find_data(client, database, collection, filters={}):
+    ''' Find the items in the specified database and collection using the filters.
 
     :param client: a MongoClient instance
     :type client: pymongo.MongoClient
@@ -68,10 +68,10 @@ def find_forecasts(client, database, collection, filters={}):
     :type database: str
     :param collection: the database collection to be used.  It must be a collection name present in the database
     :type collection: str
-    :param filters: the parameters used for filtering the returned data. empty filter returns everything
+    :param filters: the parameters used for filtering the returned data. An empty filter parameter returns the full collection
     :type filters: dict
     
-    :return: the result of the qurey
+    :return: the result of the query
     :type: pymongo.cursor.CursorType
     '''
 
@@ -81,7 +81,7 @@ def find_forecasts(client, database, collection, filters={}):
 
 def make_forecasts_list(forecasts):
     ''' This only needs to be used while finding documents previously loaded to collections during the development stage. It
-    is intended to take a pymongo coursor object holding forecasts found by the filtered find_forecasts() function from this
+    is intended to take a pymongo coursor object holding forecasts found by the filtered find_data() function from this
     module. If it gets a proper weather-type object it returns it unmodified. If it gets a list of properly formed weather-type 
     objects it checks for the different varieties of objects inserted to the database through the course of developent to 
     create a list of forecast lists. **It was initially intended that the returned list of forecast lists would be pushed into 
@@ -127,21 +127,17 @@ def load(data, code, client, database, collection):
     :param collection: the database collection to be used
     :type collection: str
     ''' 
-    # decide how to handle the load depending on where the document will be loaded.
+    # decide how to handle the loading process depending on where the document will be loaded.
     if collection == 'instant':
         # set the appropriate database collections, filters and update types
         db = Database(client, database)
         col = Collection(db, collection)
         filters = {'zipcode':code, 'instant':data['instant']}
-#         if <check to see whether the "Weather" key is in the data>:
-#             updates = {'$push': {'forecasts': data}} # add the weather to the instant document
-#         if <check to see whether the "weathers" key is in the data>:
-#             updates = {'$push': {'forecasts': data}} # append the forecast object to the forecasts list
-        updates = {'$push': {'forecasts': data}}
+        if "Weather" in data:
+            updates = {'$set': {'weather': data}} # add the weather to the instant document
+        else:
+            updates = {'$push': {'forecasts': data}} # append the forecast object to the forecasts list
         try:
-            # check to see if there is a document that fits the parameters. If there is, update it, if there isn't, upsert it
-#             updated = col.find_one_and_update(filters, updates, upsert=True, return_document=ReturnDocument.AFTER)
-#             return updated
             col.find_one_and_update(filters, updates,  upsert=True)
         except DuplicateKeyError:
             return(f'DuplicateKeyError, could not insert data into {collection}.')
@@ -153,7 +149,7 @@ def load(data, code, client, database, collection):
         except DuplicateKeyError:
             return(f'DuplicateKeyError, could not insert data into {collection}.')
 
-def sort_casts(forecasts, code, client, database=None, collection=None):
+def sort_casts(forecasts, code, client, database='OWM', collection='instant'):
     ''' Take the array of forecasts from the five_day forecasts and sort them into the documents of the specified database
     collection.
 
@@ -172,14 +168,17 @@ def sort_casts(forecasts, code, client, database=None, collection=None):
     global port
 
     client = MongoClient(host=host, port=port)
-    if database and collection:
-        db = Database(client, database)
-        col = Collection(db, collection)
-    else:
-        database = 'OWM'
-        collection = 'instant'
-        db = client.OWM
-        col = db.instant
+    db = Database(client, database)
+    col = Collection(db, collection)
+    # declare a specific database and collection to use: specify from arguements or resort to the default
+#     if database and collection:
+#         db = Database(client, database)
+#         col = Collection(db, collection)
+#     else:
+#         database = 'OWM'
+#         collection = 'instant'
+#         db = client.OWM
+#         col = db.instant
     # update each forecast and insert it to the instant document with the matching instant_time and zipcode
     for forecast in forecasts:
         # find a single instant specified by zip and the forecast ref_time and append the forecast to the forecasts object
@@ -191,11 +190,18 @@ if __name__ == "__main__":
     # set the database and collection to pull from
     database = "test"
     collection = "forecasted"
-    forecasts = find_forecasts(client, database, collection)
+    forecasts = find_data(client, database, collection)
+    collection = "observed"
+    observations = find_data(client, database, collection)
     collection = 'instant' # set the collection to be updated
     start = time.time()
+    # sort the forecasts
     for forecast in forecasts:
         code = forecast['zipcode'] # set the code from the forecast
         weathers = forecast['weathers'] # use the weathers array from the forecast
         sort_casts(weathers, code, client, database=database, collection=collection)
-    print(f'{time.time()-start} seconds passed while sorting each weathers array')
+    # set the observations into their respective instants
+    for observation in observations:
+        code = observation['zipcode']
+        load(observation, code, client, database=database, collection=collection)
+    print(f'{time.time()-start} seconds passed while sorting each weathers array and adding observations to instants')
