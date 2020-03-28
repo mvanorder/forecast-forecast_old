@@ -12,7 +12,7 @@ from pymongo.collection import Collection, ReturnDocument
 from pymongo.errors import ConnectionFailure, InvalidDocument, DuplicateKeyError, OperationFailure, ConfigurationError
 from urllib.parse import quote
 
-from config import OWM_API_key as key, connection_port, user, password, socket_path
+from config import user, password, socket_path
 
 
 # use the local host and port for all the primary operations
@@ -77,7 +77,7 @@ def find_data(client, database, collection, filters={}):
 
     db = Database(client, database)
     col = Collection(db, collection)
-    return col.find(filters)
+    return col.find(filters).batch_size(100)
 
 def make_forecasts_list(forecasts):
     ''' This only needs to be used while finding documents previously loaded to collections during the development stage. It
@@ -132,7 +132,11 @@ def load(data, code, client, database, collection):
         # set the appropriate database collections, filters and update types
         db = Database(client, database)
         col = Collection(db, collection)
-        filters = {'zipcode':code, 'instant':data['instant']}
+        # check for old version conditions
+        if 'reference_time' in data:
+            filters = {'zipcode':code, 'instant':data['reference_time']}
+        else:
+            filters = {'zipcode':code, 'instant':data['instant']}            
         if "Weather" in data:
             updates = {'$set': {'weather': data}} # add the weather to the instant document
         else:
@@ -188,20 +192,27 @@ def sort_casts(forecasts, code, client, database='OWM', collection='instant'):
 if __name__ == "__main__":
     client = Client(host=host, port=port)
     # set the database and collection to pull from
-    database = "test"
+    database = "forecast-forecast"
     collection = "forecasted"
-    forecasts = find_data(client, database, collection)
+    forecasts = find_data(client, database, collection)#.batch_size(100)
     collection = "observed"
-    observations = find_data(client, database, collection)
+    observations = find_data(client, database, collection)#.batch_size(100)
     collection = 'instant' # set the collection to be updated
     start = time.time()
+    f, o = 0, 0
     # sort the forecasts
     for forecast in forecasts:
+        if f%100 == 0:
+            print(f)
         code = forecast['zipcode'] # set the code from the forecast
         weathers = forecast['weathers'] # use the weathers array from the forecast
         sort_casts(weathers, code, client, database=database, collection=collection)
+        f+=1
     # set the observations into their respective instants
     for observation in observations:
+        if o%100 == 0:
+            print(o)
         code = observation['zipcode']
         load(observation, code, client, database=database, collection=collection)
+        o+=1
     print(f'{time.time()-start} seconds passed while sorting each weathers array and adding observations to instants')
