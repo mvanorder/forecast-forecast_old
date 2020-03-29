@@ -77,7 +77,7 @@ def find_data(client, database, collection, filters={}):
 
     db = Database(client, database)
     col = Collection(db, collection)
-    return col.find(filters).batch_size(100)
+    return col.find(filters).batch_size(10)
 
 def make_forecasts_list(forecasts):
     ''' This only needs to be used while finding documents previously loaded to collections during the development stage. It
@@ -200,6 +200,8 @@ if __name__ == "__main__":
     collection = 'instant' # set the collection to be updated
     start = time.time()
     f, o = 0, 0
+    f_sort = 'sorted_forecasts.txt'
+    o_sort = 'sorted_observations.txt'
     # sort the forecasts
     for forecast in forecasts:
         if f%100 == 0:
@@ -208,6 +210,8 @@ if __name__ == "__main__":
         weathers = forecast['weathers'] # use the weathers array from the forecast
         sort_casts(weathers, code, client, database=database, collection=collection)
         f+=1
+        with open(f_sort, 'a') as s:
+            s.write(forecast['_id'])
     # set the observations into their respective instants
     for observation in observations:
         if o%100 == 0:
@@ -215,4 +219,6 @@ if __name__ == "__main__":
         code = observation['zipcode']
         load(observation, code, client, database=database, collection=collection)
         o+=1
+        with open(o_sort, 'a') as s:
+            s.write(observation['_id'])
     print(f'{time.time()-start} seconds passed while sorting each weathers array and adding observations to instants')
