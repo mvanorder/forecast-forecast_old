@@ -200,8 +200,8 @@ if __name__ == "__main__":
     collection = 'instant' # set the collection to be updated
     start = time.time()
     f, o = 0, 0
-    f_sort = 'sorted_forecasts.txt'
-    o_sort = 'sorted_observations.txt'
+    f_sort = 'sorted_forecasts_log.txt'
+    o_sort = 'sorted_observations_log.txt'
     # sort the forecasts
     for forecast in forecasts:
         if f%100 == 0:
@@ -211,7 +211,7 @@ if __name__ == "__main__":
         sort_casts(weathers, code, client, database=database, collection=collection)
         f+=1
         with open(f_sort, 'a') as s:
-            s.write(str(forecast['_id']))
+            s.write(str(forecast['_id'] + '\n'))
     # set the observations into their respective instants
     for observation in observations:
         if o%100 == 0:
@@ -220,5 +220,5 @@ if __name__ == "__main__":
         load(observation, code, client, database=database, collection=collection)
         o+=1
         with open(o_sort, 'a') as s:
-            s.write(str(observation['_id']))
+            s.write(str(observation['_id'] + '\n'))
     print(f'{time.time()-start} seconds passed while sorting each weathers array and adding observations to instants')
