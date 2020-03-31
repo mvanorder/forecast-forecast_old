@@ -138,31 +138,29 @@ def load(data, client, database, collection):
     :type collection: str
     '''
     
-    # set the appropriate database collections, filters and update types
+    db = Database(client, database)
+    col = Collection(db, collection)
+
+    # create the appropriate filters and update types using the data in the dictionary
     if collection == 'instant':
-        db = Database(client, database)
-        col = Collection(db, collection)
         filters = {'zipcode':data['zipcode'], 'instant':data['instant']}
         updates = {'$push': {'forecasts': data}} # append the forecast object to the forecasts list
         try:
             # check to see if there is a document that fits the parameters. If there is, update it, if there isn't, upsert it
             updated = col.find_one_and_update(filters, updates, upsert=True, return_document=ReturnDocument.AFTER)
 #             col.find_one_and_update(filters, updates,  upsert=True)
-            return updated
+            return
         except DuplicateKeyError:
             return(f'DuplicateKeyError, could not insert data into {collection}.')
     elif collection == 'observed' or collection == 'forecasted':
-        db = Database(client, database)
-        col = Collection(db, collection)
         try:
             updated = col.insert_one(data)
-            print(f'updated {collection}', updated)
         except DuplicateKeyError:
             return(f'DuplicateKeyError, could not insert data into {collection}.')
 
 
 if __name__ == '__main__':
-    # Try block to deal with the switching back anc forth between computers with different directory names
+    # this try block is to deal with the switching back and forth between computers with different directory names
     try:
         directory = os.path.join(os.environ['HOME'], 'data', 'forcast-forcast')
         filename = os.path.join(directory, 'ETL', 'Extract', 'resources', 'success_zipsNC.csv')
@@ -177,7 +175,7 @@ if __name__ == '__main__':
     print(f'task began at {start_start}')
     local_client = MongoClient(host=host, port=port)
     start_time = time.time()
-    i, n = 0, 0 #i for coundting zipcodes processed and n for counting API calls made; API calss limited to a maximum of 60/minute.
+    i, n = 0, 0 # i for counting zipcodes processed and n for counting API calls made; API calls limited to a maximum of 60/minute/apikey.
     for code in codes[10:100]:
         try:
             current = get_current_weather(code)
