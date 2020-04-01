@@ -77,7 +77,7 @@ def find_data(client, database, collection, filters={}):
 
     db = Database(client, database)
     col = Collection(db, collection)
-    return col.find(filters).batch_size(10)
+    return col.find(filters).batch_size(100)
 
 def make_forecasts_list(forecasts):
     ''' This only needs to be used while finding documents previously loaded to collections during the development stage. It
@@ -158,7 +158,7 @@ def sort_casts(forecasts, code, client, database='OWM', collection='instant'):
     collection.
 
     :param forecasts: the forecasts from five_day()-  They come in a list of 40, one for each of every thrid hour over five days
-    :type forecasts: list- expecting a list of forecasts
+    :type forecasts: list- expecting a list of forecas
     :param code: the zipcode
     :type code: string
     :param client: the mongodb client
@@ -168,24 +168,9 @@ def sort_casts(forecasts, code, client, database='OWM', collection='instant'):
     :param collection: the database collection to be used.  It must be a collection name present in the database
     :type collection: string
     '''
-    global host
-    global port
 
-    client = MongoClient(host=host, port=port)
-    db = Database(client, database)
-    col = Collection(db, collection)
-    # declare a specific database and collection to use: specify from arguements or resort to the default
-#     if database and collection:
-#         db = Database(client, database)
-#         col = Collection(db, collection)
-#     else:
-#         database = 'OWM'
-#         collection = 'instant'
-#         db = client.OWM
-#         col = db.instant
     # update each forecast and insert it to the instant document with the matching instant_time and zipcode
     for forecast in forecasts:
-        # find a single instant specified by zip and the forecast ref_time and append the forecast to the forecasts object
         load(forecast, code, client, database, collection)
 
 
@@ -194,24 +179,21 @@ if __name__ == "__main__":
     # set the database and collection to pull from
     database = "forecast-forecast"
     collection = "forecasted"
-    forecasts = find_data(client, database, collection)#.batch_size(100)
+    forecasts = find_data(client, database, collection)
     collection = "observed"
-    observations = find_data(client, database, collection)#.batch_size(100)
+    observations = find_data(client, database, collection)
     collection = 'instant' # set the collection to be updated
     start = time.time()
     f, o = 0, 0
-    f_sort = 'sorted_forecasts.txt'
-    o_sort = 'sorted_observations.txt'
-    # sort the forecasts
+    # sort the forecasts into instants
     for forecast in forecasts:
         if f%100 == 0:
             print(f)
         code = forecast['zipcode'] # set the code from the forecast
-        weathers = forecast['weathers'] # use the weathers array from the forecast
-        sort_casts(weathers, code, client, database=database, collection=collection)
+        casts = forecast['weathers'] # use the weathers array from the forecast
+        for cast in casts:
+            load(weathers, code, client, database=database, collection=collection)
         f+=1
-        with open(f_sort, 'a') as s:
-            s.write(str(forecast['_id']))
     # set the observations into their respective instants
     for observation in observations:
         if o%100 == 0:
@@ -219,6 +201,4 @@ if __name__ == "__main__":
         code = observation['zipcode']
         load(observation, code, client, database=database, collection=collection)
         o+=1
-        with open(o_sort, 'a') as s:
-            s.write(str(observation['_id']))
     print(f'{time.time()-start} seconds passed while sorting each weathers array and adding observations to instants')
