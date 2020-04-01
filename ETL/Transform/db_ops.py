@@ -124,7 +124,6 @@ def load(data, client, database, collection):
 
 
 if __name__ == "__main__":
-
     filename = './sorted_cast_ids.txt'
     host = host
     port = port
