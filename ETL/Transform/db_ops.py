@@ -1,4 +1,4 @@
-''' go into '''import time
+import time
 
 from pymongo import MongoClient
 from pymongo.database import Database
@@ -7,6 +7,7 @@ from pymongo.errors import ConnectionFailure, InvalidDocument, DuplicateKeyError
 from urllib.parse import quote
 
 from config import user, password, socket_path, host, port
+
 ''' Useful functions for forecast-forecast specific operations '''
 
 def Client(host=None, port=None, uri=None):
@@ -82,7 +83,7 @@ def move_sorted(client, from_db, from_col, to_db, to_col, id_list):
     inserted = to_collection.insert_many(deleted)
     print(type(inserted))
     
-def load_weather_object(data, client, database, collection):
+def load(data, client, database, collection):
     ''' Load data to specified database collection. Also checks for a preexisting document with the same instant and 
     zipcode, and updates it in the case that there was already one there.
 
@@ -123,6 +124,8 @@ def load_weather_object(data, client, database, collection):
 
 
 if __name__ == "__main__":
+
+    filename = './sorted_cast_ids.txt'
     host = host
     port = port
     database = 'OWM'
@@ -131,13 +134,13 @@ if __name__ == "__main__":
     client = Client(host=host, port=port)
     col = dbncol(client, database=database, collection=collection)
     updated_doc_ids = []
-    result = col.find({}).batch_size(10)
-    r = result
+    result = col.find({}).batch_size(200)
+    r = result[:120000]
     # change each document in restored instant collection. ** many, maybe all, the documents have all the fields for the observation
     # separtely key'd in the parent document. This will put each of those weather fields together under the field 'observation'
     from pprint import pprint
     n = 0
-    fs_and_us = {'passed' : 0, 'replaced' : 0, 'updated' : 0} # for counting the loop results
+    fr_and_fu = {'passed' : 0, 'replaced' : 0, 'updated' : 0} # for counting the loop results
     for item in r:
         if n%200 == 0:
             print(f'processed {n} documents')
@@ -156,18 +159,29 @@ if __name__ == "__main__":
                 'wind' : item.pop('wind'),
                 'time_to_instant': item['instant']-ref_time
             }
+            n+=1
         except KeyError:
-    #         print('keyerror...continuing')
-            fs_and_us['passed'] += 1
+            updated_doc_ids.append(item['_id'])
+            fr_and_fu['passed'] += 1
+            n+=1
             continue
         filters = {'zipcode':item['zipcode'], 'instant':item['instant']}
         updates = {'$set': item}
         try:
             col.find_one_and_replace(filters, item, upsert=True)
-    #         print('found and replaced')
-            fs_and_us['replaced'] += 1
+            fr_and_fu['replaced'] += 1
         except DuplicateKeyError:
             col.find_one_and_update(filters, updates, upsert=True)
-            fs_and_us['updated'] += 1
+            fr_and_fu['updated'] += 1
+        updated_doc_ids.append(item['_id'])
         n += 1
-    pprint(fs_and_us)
+        if n == 120000:
+            print('breaking and looking to delete all the documents just processed then restart the processing')
+            break
+    client.close()
+    with open(filename, 'w') as f:
+        for _id in updated_doc_ids:
+            post = _id+'/n'
+            f.write(post)
+    
+    
