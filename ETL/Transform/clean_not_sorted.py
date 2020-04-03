@@ -70,6 +70,22 @@ def dbncol(client, collection, database='test'):
     col = Collection(db, collection)
     return col
 
+def load(data, client, database, collection):
+    ''' Load data to specified database collection. Also checks for a preexisting document with the same instant and 
+    zipcode, and updates it in the case that there was already one there.
+
+    :param data: the dictionary created from the api calls
+    :type data: dict
+    :param client: a MongoClient instance
+    :type client: pymongo.MongoClient
+    :param database: the database to be used
+    :type database: str
+    :param collection: the database collection to be used
+    :type collection: str
+    '''
+
+    col = dbncol(client, collection, database='test1')
+
     # set the appropriate database collections, filters and update types
     if collection == 'instant':
         filters = {'zipcode':data['zipcode'], 'instant':data['instant']}

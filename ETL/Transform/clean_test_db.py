@@ -111,47 +111,6 @@ if __name__ == "__main__":
     # for item in updates:
     #     # col.insert_one(item)
     #     updated_doc_ids.append(item['_id'])
-    # print(updated_doc_ids)
-    # n = 0
-    # # fr_and_fu = {'passed' : 0, 'replaced' : 0, 'updated' : 0} # for counting the loop results
-    # for item in r:
-    #     print(item['_id'])
-    #     try:
-    #         ref_time = item.pop('reference_time')
-    #         item['observed'] = {
-    #             'clouds' : item.pop('clouds'),
-    #             'detailed_status' : item.pop('detailed_status'),
-    #             'humidity' : item.pop('humidity'),
-    #             'pressure' : item.pop('pressure'),
-    #             'rain' : item.pop('rain'),
-    #             'snow' : item.pop('snow'),
-    #             'status' : item.pop('status'),
-    #             'temperature' : item.pop('temperature'),
-    #             'weather_code' : item.pop('weather_code'),
-    #             'wind' : item.pop('wind'),
-    #             'time_to_instant': item['instant']-ref_time
-    #         }
-    #         n+=1
-    #     except KeyError:
-    #         col = dbncol(client, 'move_to_destination', database='not_sorted')
-    #         col.find_one_and_replace(filters, item, upsert=True)
-    #         updated_doc_ids.append(item['_id'])
-    #         fr_and_fu['passed'] += 1
-    #         n+=1
-    #         continue
-    #     filters = {'zipcode':item['zipcode'], 'instant':item['instant']}
-    #     updates = {'$set': item}
-    #     # switch to destination database
-    #     col = dbncol(client, 'test_instant', database='not_sorted')
-    #     try:
-    #         col.find_one_and_replace(filters, item, upsert=True)
-    #         fr_and_fu['replaced'] += 1
-    #     except DuplicateKeyError:
-    #         col = dbncol(client, 'test_duplicates', database='not_sorted')
-    #         col.insert(item)
-    #         fr_and_fu['updated'] += 1
-    #     updated_doc_ids.append(item['_id'])
-    #     n += 1
     client.close()
     print(f'there are {len(updated_doc_ids)} updated docs in updated_doc_ids.')
     filename = '/Users/chuckvanhoff/data/forcast-forcast/ETL/Transform/testdb_sorted_instant_ids.txt'
