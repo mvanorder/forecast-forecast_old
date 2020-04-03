@@ -118,7 +118,6 @@ def five_day(code=None, coords=None):
         forecast['coordinates'] = coords
     forecast.pop('Location')
     forecast.pop('interval')
-    forecast['instant'] = forecast['reception_time']
     for cast in forecast['weathers']:
         cast['instant'] = cast.pop('reference_time')
     return forecast
@@ -137,15 +136,27 @@ def load(data, client, database, collection):
     :type collection: str
     '''
     
-    filters = {'zipcode':data['zipcode'], 'instant':data['instant']}
-    updates = {'$set': data} 
-    try:
+    # set the appropriate database collections, filters and update types
+    if collection == 'instant':
         db = Database(client, database)
         col = Collection(db, collection)
-        # check to see if there is a document that fits the parameters. If there is, update it, if there isn't, upsert it
-        col.find_one_and_update(filters, updates,  upsert=True)
-    except DuplicateKeyError:
-        return(f'DuplicateKeyError, could not insert data into {name}.')
+        filters = {'zipcode':data['zipcode'], 'instant':data['instant']}
+        updates = {'$push': {'forecasts': data}} # append the forecast object to the forecasts list
+        try:
+            # check to see if there is a document that fits the parameters. If there is, update it, if there isn't, upsert it
+            updated = col.find_one_and_update(filters, updates, upsert=True, return_document=ReturnDocument.AFTER)
+#             col.find_one_and_update(filters, updates,  upsert=True)
+            return updated
+        except DuplicateKeyError:
+            return(f'DuplicateKeyError, could not insert data into {collection}.')
+    elif collection == 'observed' or collection == 'forecasted':
+        db = Database(client, database)
+        col = Collection(db, collection)
+        try:
+            updated = col.insert_one(data)
+            print(f'updated {collection}', updated)
+        except DuplicateKeyError:
+            return(f'DuplicateKeyError, could not insert data into {collection}.')
 
 
 if __name__ == '__main__':
@@ -165,7 +176,7 @@ if __name__ == '__main__':
     local_client = MongoClient(host=host, port=port)
     start_time = time.time()
     i, n = 0, 0 #i for coundting zipcodes processed and n for counting API calls made; API calss limited to a maximum of 60/minute.
-    for code in codes:
+    for code in codes[10:100]:
         try:
             current = get_current_weather(code)
         except AttributeError:
@@ -181,7 +192,7 @@ if __name__ == '__main__':
             continue
         n+=1
         load(forecasts, local_client, 'test', 'forecasted')
-        # Wait for the next 60 seconds to resume making API calls
+        # Wait for the next 60 second interval to resume making API calls
         if n==120 and time.time()-start_time <= 60:
             print(f'Waiting {60 - time.time() + start_time} seconds before resuming API calls.')
             time.sleep(60 - time.time() + start_time)
