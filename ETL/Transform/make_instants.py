@@ -128,7 +128,7 @@ def load(data, code, client, database, collection):
     :type collection: str
     ''' 
     # decide how to handle the loading process depending on where the document will be loaded.
-    if collection == 'instant':
+    if collection == 'instant' or collection == 'instants_made_apr3':
         # set the appropriate database collections, filters and update types
         db = Database(client, database)
         col = Collection(db, collection)
@@ -158,7 +158,7 @@ def sort_casts(forecasts, code, client, database='OWM', collection='instant'):
     collection.
 
     :param forecasts: the forecasts from five_day()-  They come in a list of 40, one for each of every thrid hour over five days
-    :type forecasts: list- expecting a list of forecas
+    :type forecasts: list- expecting a list of forecast objects
     :param code: the zipcode
     :type code: string
     :param client: the mongodb client
@@ -177,28 +177,38 @@ def sort_casts(forecasts, code, client, database='OWM', collection='instant'):
 if __name__ == "__main__":
     client = Client(host=host, port=port)
     # set the database and collection to pull from
-    database = "forecast-forecast"
+    database = "test"
     collection = "forecasted"
     forecasts = find_data(client, database, collection)
     collection = "observed"
     observations = find_data(client, database, collection)
-    collection = 'instant' # set the collection to be updated
+    collection = 'instants_made_apr3' # set the collection to be updated
     start = time.time()
     f, o = 0, 0
+    sorted_casts = []
+    sorted_obs = []
     # sort the forecasts into instants
     for forecast in forecasts:
-        if f%100 == 0:
+        if f%1000 == 0:
             print(f)
         code = forecast['zipcode'] # set the code from the forecast
         casts = forecast['weathers'] # use the weathers array from the forecast
         for cast in casts:
-            load(weathers, code, client, database=database, collection=collection)
+            load(cast, code, client, database=database, collection=collection)
         f+=1
+        sorted_casts.append(forecast['_id'])
     # set the observations into their respective instants
     for observation in observations:
-        if o%100 == 0:
+        if o%1000 == 0:
             print(o)
         code = observation['zipcode']
         load(observation, code, client, database=database, collection=collection)
         o+=1
+        sorted_obs.append(observation['_id'])
     print(f'{time.time()-start} seconds passed while sorting each weathers array and adding observations to instants')
+    with open('sorted_casts_from_testdb.txt', 'w') as f:
+        for entry in sorted_casts:
+            f.write(str(entry)+'\n')
+    with open('sorted_obs_from_testdb.txt', 'w') as f:
+        for entry in sorted_obs:
+            f.write(str(entry)+'\n')
