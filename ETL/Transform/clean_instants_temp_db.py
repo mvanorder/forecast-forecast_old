@@ -65,8 +65,8 @@ def dbncol(client, collection='test', database='test'):
 if __name__ == '__main__':
     client = Client(host=host, port=port)
     col = dbncol(client, collection='instants_temp', database='forecast-forecast')
-    filter = {'last_updated': {'$exists':True}}
-    update = {'$unset': {'last_updated':''}}
+    filter = {'last_update': {'$exists':True}}
+    update = {'$unset': {'last_update':''}}
     # docs = col.find(filter)
     # updated_docs = []
     # for doc in docs:
