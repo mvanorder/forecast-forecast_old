@@ -119,3 +119,6 @@ forecast_collection_log.txt
 # Database
 dump/
 instants.csv
+
+# log files
+/Users/chuckvanhoff/data/forcast-forcast/sorted*
