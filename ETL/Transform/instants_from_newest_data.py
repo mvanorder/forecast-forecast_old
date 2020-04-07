@@ -1,6 +1,6 @@
 ''' Make the instant documents. Pull all documents from the "forecasted" and the "observed" database collections. Sort those
-documents according to the type: forecasted documents get their forecast arrays sorted into forecast lists within the documents 
-with having the same zipcode and instant values, observed documents are inserted to the same document corrosponding to the 
+documents according to the type: forecasted documents get their forecast arrays sorted into forecast lists within the documents
+having the same zipcode and instant values, observed documents are inserted to the same document corrosponding to the 
 zipcode and instant values. '''
 
 
@@ -59,6 +59,24 @@ def Client(host=None, port=None, uri=None):
             print('connection made with local server, even though you asked for the remote server')
             return client
 
+def dbncol(client, collection, database='test'):
+    ''' Make a connection to the database and collection given in the arguments.
+
+    :param client: a MongoClient instance
+    :type client: pymongo.MongoClient
+    :param database: the name of the database to be used. It must be a database name present at the client
+    :type database: str
+    :param collection: the database collection to be used.  It must be a collection name present in the database
+    :type collection: str
+    
+    :return col: the collection to be used
+    :type: pymongo.collection.Collection
+    '''
+
+    db = Database(client, database)
+    col = Collection(db, collection)
+    return col
+
 def find_data(client, database, collection, filters={}):
     ''' Find the items in the specified database and collection using the filters.
 
@@ -79,38 +97,6 @@ def find_data(client, database, collection, filters={}):
     col = Collection(db, collection)
     return col.find(filters).batch_size(100)
 
-def make_forecasts_list(forecasts):
-    ''' This only needs to be used while finding documents previously loaded to collections during the development stage. It
-    is intended to take a pymongo coursor object holding forecasts found by the filtered find_data() function from this
-    module. If it gets a proper weather-type object it returns it unmodified. If it gets a list of properly formed weather-type 
-    objects it checks for the different varieties of objects inserted to the database through the course of developent to 
-    create a list of forecast lists. **It was initially intended that the returned list of forecast lists would be pushed into 
-    the sort_casts() function.
-
-    :param forecasts: a list of forecasted documents or pymongo coursor object pointing to the find() results from a
-        db.forecasted query.
-    :type forecasts: list or pymongo.cursor.CursorType
-    
-    :return casts: the unaltered forecasts object if it's a dict OR the weathers arrays of the argument list items as a list
-        of lists
-    :type casts: dict or list
-    '''
-
-    casts = []
-    if type(forecasts) == dict:
-        return forecasts
-    elif type(forecasts) == list:
-        for cast in forecasts:
-            if type(cast['weathers'])==list:
-                casts.append(cast['weathers'])
-                continue
-            elif type(cast['five_day'])==list:
-                casts.append(cast['five_day'])
-                continue
-            else:
-                casts.append(cast['five_day']['weathers'])
-        return casts
-
 def load_weather(data, client, database, collection):
     ''' Load data to specified database collection. This determines the appropriate way to process the load depending on the
     collection to which it should be loaded. Data is expected to be a weather-type dictionary. When the collection is "instants"
@@ -127,13 +113,10 @@ def load_weather(data, client, database, collection):
     :param collection: the database collection to be used
     :type collection: str
     ''' 
+    col = dbncol(client, collection, database=database)
     # decide how to handle the loading process depending on where the document will be loaded.
     if collection == 'instant' or collection == 'test_instants':
         # set the appropriate database collections, filters and update types
-        db = Database(client, database)
-        col = Collection(db, collection)
-        # data.pop('zipcode')
-        # data.pop('instant')
         if "Weather" in data:
             filters = {'zipcode':data['Weather'].pop('zipcode'), 'instant':data['Weather'].pop('instant')}            
             updates = {'$set': {'weather': data['Weather']}}
@@ -145,8 +128,6 @@ def load_weather(data, client, database, collection):
         except DuplicateKeyError:
             return(f'DuplicateKeyError, could not insert data into {collection}.')
     elif collection == 'observed' or collection == 'forecasted':
-        db = Database(client, database)
-        col = Collection(db, collection)
         try:
             col.insert_one(data)
         except DuplicateKeyError:
