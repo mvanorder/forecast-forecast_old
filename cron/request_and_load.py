@@ -189,28 +189,21 @@ def load_weather(data, client, database, collection):
     :param collection: the database collection to be used
     :type collection: str
     ''' 
-    
+    col = dbncol(client, collection, database=database)
     # decide how to handle the loading process depending on where the document will be loaded.
-    if collection == 'instant':
+    if collection == 'instant' or collection == 'test_instants':
         # set the appropriate database collections, filters and update types
-        col = dbncol(client, collection, database)
-        # check for old version conditions
-        if 'reference_time' in data:
-            filters = {'zipcode':data['zipcode'], 'instant':data['reference_time']}
-            data['time_to_instant'] = data.pop('reference_time') - data.pop('reception_time')
-        else:
-            filters = {'zipcode':data['zipcode'], 'instant':data['instant']}            
-            data['time_to_instant'] = data.pop('instant') - data.pop('reception_time')
         if "Weather" in data:
-            updates = {'$set': {'weather': data}} # add the weather to the instant document
+            filters = {'zipcode':data['Weather'].pop('zipcode'), 'instant':data['Weather'].pop('instant')}            
+            updates = {'$set': {'weather': data['Weather']}}
         else:
+            filters = {'zipcode':data.pop('zipcode'), 'instant':data.pop('instant')}
             updates = {'$push': {'forecasts': data}} # append the forecast object to the forecasts list
         try:
             col.find_one_and_update(filters, updates,  upsert=True)
         except DuplicateKeyError:
             return(f'DuplicateKeyError, could not insert data into {collection}.')
     elif collection == 'observed' or collection == 'forecasted':
-        col = dbncol(client, collection, database)
         try:
             col.insert_one(data)
         except DuplicateKeyError:
