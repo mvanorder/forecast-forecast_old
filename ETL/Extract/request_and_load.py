@@ -34,7 +34,7 @@ def read_list_from_file(filename):
         return z_list.read().strip().split(',')
 
 def get_data_from_weather_api(owm, zipcode=None, coords=None):
-    ''' Handle the API call errors for weatehr and forecast type calls.
+    ''' Makes api calls for observations and forecasts and handles the API call errors.
 
     :param owm: the OWM API object
     :type owm: pyowm.OWM
@@ -126,6 +126,24 @@ def five_day(code=None, coords=None):
         cast['reception_time'] = reception_time
     return forecast
 
+def dbncol(client, collection, database='test'):
+    ''' Make a connection to the database and collection given in the arguments.
+
+    :param client: a MongoClient instance
+    :type client: pymongo.MongoClient
+    :param database: the name of the database to be used. It must be a database name present at the client
+    :type database: str
+    :param collection: the database collection to be used.  It must be a collection name present in the database
+    :type collection: str
+    
+    :return col: the collection to be used
+    :type: pymongo.collection.Collection
+    '''
+
+    db = Database(client, database)
+    col = Collection(db, collection)
+    return col
+    
 def load_og(data, client, database, collection):
     # Legacy function...see load_weather() for loading needs
     ''' Load data to specified database collection. Also checks for a preexisting document with the same instant and zipcode, and updates
@@ -177,29 +195,21 @@ def load_weather(data, client, database, collection):
     :param collection: the database collection to be used
     :type collection: str
     ''' 
+    col = dbncol(client, collection, database=database)
     # decide how to handle the loading process depending on where the document will be loaded.
-    if collection == 'instant':
+    if collection == 'instant' or collection == 'test_instants':
         # set the appropriate database collections, filters and update types
-        db = Database(client, database)
-        col = Collection(db, collection)
-        # check for old version conditions
-        if 'reference_time' in data:
-            filters = {'zipcode':data['zipcode'], 'instant':data['reference_time']}
-            data['time_to_instant'] = data.pop('reference_time') - data.pop('reception_time')
-        else:
-            filters = {'zipcode':data['zipcode'], 'instant':data['instant']}            
-            data['time_to_instant'] = data.pop('instant') - data.pop('reception_time')
         if "Weather" in data:
-            updates = {'$set': {'weather': data}} # add the weather to the instant document
+            filters = {'zipcode':data['Weather'].pop('zipcode'), 'instant':data['Weather'].pop('instant')}            
+            updates = {'$set': {'weather': data['Weather']}}
         else:
+            filters = {'zipcode':data.pop('zipcode'), 'instant':data.pop('instant')}
             updates = {'$push': {'forecasts': data}} # append the forecast object to the forecasts list
         try:
             col.find_one_and_update(filters, updates,  upsert=True)
         except DuplicateKeyError:
             return(f'DuplicateKeyError, could not insert data into {collection}.')
     elif collection == 'observed' or collection == 'forecasted':
-        db = Database(client, database)
-        col = Collection(db, collection)
         try:
             col.insert_one(data)
         except DuplicateKeyError:
