@@ -83,8 +83,8 @@ def get_current_weather(code=None, coords=None):
     :return: the raw weather object
     :type: json
     '''
-    global owm_loohoo
-    owm = owm_loohoo
+    global loohoo_key
+    owm = OWM(loohoo_key)
 
     try:
         result = get_data_from_weather_api(owm, zipcode=code)
@@ -92,14 +92,13 @@ def get_current_weather(code=None, coords=None):
         owm = owm_loohoo
     current = json.loads(result.to_JSON()) # the current weather for the given zipcode
     if code:
-        current['zipcode'] = code
-    current['coordinates'] = current['Location']['coordinates']
-    current['instant'] = 10800*(current['Weather']['reference_time']//10800 + 1)
-    current['Weather']['time_to_instant'] = current['instant'] - current['Weather'].pop('reference_time')
-    current.pop('Location')
+        current['Weather']['zipcode'] = code
+    current['Weather']['coordinates'] = current['Location']['coordinates']
+    current['Weather']['instant'] = 10800*(current['Weather']['reference_time']//10800 + 1)
+    current['Weather']['time_to_instant'] = current['Weather']['instant'] - current['Weather'].pop('reference_time')
     return current
 
-def five_day(code=None, coords=None):
+def five_day(coords, code=None):
     ''' Get each weather forecast for the corrosponding coordinates
     
     :param coords: the latitude and longitude for which that that weather is being forecasted
@@ -108,22 +107,19 @@ def five_day(code=None, coords=None):
     :return five_day: the five day, every three hours, forecast for the zip code
     :type five_day: dict
     '''
-    global owm_masta
-    owm = owm_masta
+    global masta_key
+    owm = OWM(masta_key)
 
     Forecast = get_data_from_weather_api(owm, coords=coords).get_forecast()
     forecast = json.loads(Forecast.to_JSON())
-    if code:
-        forecast['zipcode'] = code
-    if coords:
-        forecast['coordinates'] = coords
-    forecast.pop('Location')
     forecast.pop('interval')
-    reception_time = forecast['reception_time'] # this is going to be added to the weathers array
+    # put each of these things into each of the objects in the forecasts array
     for cast in forecast['weathers']:
-        cast['zipcode'] = forecast['zipcode']
-        cast['instant'] = cast.pop('reference_time')
-        cast['reception_time'] = reception_time
+        if code:
+            cast['zipcode'] = code
+        cast['coordinates'] = forecast['Location']['coordinates']
+        cast['instant'] = cast.pop('reference_time') # rename ref_time to instant
+        cast['time_to_instant'] = cast['instant'] - forecast['reception_time']
     return forecast
 
 def dbncol(client, collection, database='test'):
@@ -143,7 +139,7 @@ def dbncol(client, collection, database='test'):
     db = Database(client, database)
     col = Collection(db, collection)
     return col
-    
+
 def load_og(data, client, database, collection):
     # Legacy function...see load_weather() for loading needs
     ''' Load data to specified database collection. Also checks for a preexisting document with the same instant and zipcode, and updates
@@ -229,12 +225,12 @@ def request_and_load(codes):
     for code in codes:
         try:
             current = get_current_weather(code)
+            coords = current['coordinates'] 
         except AttributeError:
             print(f'got AttributeError while collecting current weather for {code}. Continuing to next code.')
             continue
         n+=1
         load_weather(current, local_client, 'test', 'observed')
-        coords = current['coordinates']
         try:
             forecasts = five_day(code, coords=coords)
         except AttributeError:
