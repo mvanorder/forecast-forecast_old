@@ -86,7 +86,7 @@ def get_current_weather(code=None, coords=None):
         owm = OWM(loohoo_key)
     current = json.loads(result.to_JSON()) # the current weather for the given zipcode
     if code:
-        current['zipcode'] = code
+        current['Weather']['zipcode'] = code
     current['coordinates'] = current['Location']['coordinates']
     current['Weather']['instant'] = 10800*(current['Weather']['reference_time']//10800 + 1)
     current['Weather']['time_to_instant'] = current['Weather']['instant'] - current['Weather'].pop('reference_time')
