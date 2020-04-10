@@ -105,8 +105,13 @@ def five_day(coords, code=None):
 
     Forecast = get_data_from_weather_api(owm, coords=coords).get_forecast()
     forecast = json.loads(Forecast.to_JSON())
+    if code:
+        forecast['zipcode'] = code
+    if coords:
+        forecast['coordinates'] = coords
+    forecast.pop('Location')
     forecast.pop('interval')
-    # put each of these things into each of the objects in the forecasts array
+    reception_time = forecast['reception_time'] # this is going to be added to the weathers array
     for cast in forecast['weathers']:
         cast['zipcode'] = forecast['zipcode']
         cast['instant'] = cast.pop('reference_time')
