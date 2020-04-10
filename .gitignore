@@ -115,12 +115,14 @@ forecast_collection_log.txt
 
 # Visual Studio Code
 .vscode/
-*.vscode
+/.vscode
 .vscode/*
 
 # Database
 dump/
 instants.csv
 
-# log files
-/Users/chuckvanhoff/data/forcast-forcast/sorted*
+# forecast collection log files
+/Users/chuckvanhoff/data/forcast-forcast/sorted*txt
+sorted_cast_log.txt
+sorted_obs_log.txt

@@ -1,4 +1,4 @@
-''' This will only get the data from the weather api, make a few edits, and load it to the local database '''
+''' This will get the data from the weather api, make a few edits, and load it to the local database '''
 
 import os
 import json
@@ -18,10 +18,10 @@ from config import OWM_API_key_loohoo as loohoo_key, OWM_API_key_masta as masta_
 from config import port, host, user, password, socket_path
 
 
-owm_loohoo = OWM(loohoo_key)  # the owm objects for the separate api keys
-owm_masta = OWM(masta_key)  # the owm objects for the separate api keys
-port = port
-host = host
+# owm_loohoo = OWM(loohoo_key)  # the owm objects for the separate api keys
+# owm_masta = OWM(masta_key)  # the owm objects for the separate api keys
+# port = port
+# host = host
 
 
 def read_list_from_file(filename):
@@ -68,7 +68,7 @@ def get_data_from_weather_api(owm, zipcode=None, coords=None):
             time.sleep(1)
         tries += 1
     if tries == 4:
-        print('tried 3 times without response; breaking out and causing an error that will crash your current colleciton process...fix that!')
+        print('tried 3 times without response; moving to the next step!')
         return
     return result
 
@@ -83,8 +83,8 @@ def get_current_weather(code=None, coords=None):
     :return: the raw weather object
     :type: json
     '''
-    global owm_loohoo
-    owm = owm_loohoo
+    global loohoo_key
+    owm = OWM(loohoo_key)
 
     try:
         result = get_data_from_weather_api(owm, zipcode=code)
@@ -92,14 +92,13 @@ def get_current_weather(code=None, coords=None):
         owm = owm_loohoo
     current = json.loads(result.to_JSON()) # the current weather for the given zipcode
     if code:
-        current['zipcode'] = code
-    current['coordinates'] = current['Location']['coordinates']
-    current['instant'] = 10800*(current['Weather']['reference_time']//10800 + 1)
-    current['Weather']['time_to_instant'] = current['instant'] - current['Weather'].pop('reference_time')
-    current.pop('Location')
+        current['Weather']['zipcode'] = code
+    current['Weather']['coordinates'] = current['Location']['coordinates']
+    current['Weather']['instant'] = 10800*(current['Weather']['reference_time']//10800 + 1)
+    current['Weather']['time_to_instant'] = current['Weather']['instant'] - current['Weather'].pop('reference_time')
     return current
 
-def five_day(code=None, coords=None):
+def five_day(coords, code=None):
     ''' Get each weather forecast for the corrosponding coordinates
     
     :param coords: the latitude and longitude for which that that weather is being forecasted
@@ -108,23 +107,38 @@ def five_day(code=None, coords=None):
     :return five_day: the five day, every three hours, forecast for the zip code
     :type five_day: dict
     '''
-    global owm_masta
-    owm = owm_masta
+    global masta_key
+    owm = OWM(masta_key)
 
     Forecast = get_data_from_weather_api(owm, coords=coords).get_forecast()
     forecast = json.loads(Forecast.to_JSON())
-    if code:
-        forecast['zipcode'] = code
-    if coords:
-        forecast['coordinates'] = coords
-    forecast.pop('Location')
     forecast.pop('interval')
-    reception_time = forecast['reception_time'] # this is going to be added to the weathers array
+    # put each of these things into each of the objects in the forecasts array
     for cast in forecast['weathers']:
-        cast['zipcode'] = forecast['zipcode']
-        cast['instant'] = cast.pop('reference_time')
-        cast['reception_time'] = reception_time
+        if code:
+            cast['zipcode'] = code
+        cast['coordinates'] = forecast['Location']['coordinates']
+        cast['instant'] = cast.pop('reference_time') # rename ref_time to instant
+        cast['time_to_instant'] = cast['instant'] - forecast['reception_time']
     return forecast
+
+def dbncol(client, collection, database='test'):
+    ''' Make a connection to the database and collection given in the arguments.
+
+    :param client: a MongoClient instance
+    :type client: pymongo.MongoClient
+    :param database: the name of the database to be used. It must be a database name present at the client
+    :type database: str
+    :param collection: the database collection to be used.  It must be a collection name present in the database
+    :type collection: str
+    
+    :return col: the collection to be used
+    :type: pymongo.collection.Collection
+    '''
+
+    db = Database(client, database)
+    col = Collection(db, collection)
+    return col
 
 def load_og(data, client, database, collection):
     # Legacy function...see load_weather() for loading needs
@@ -141,9 +155,7 @@ def load_og(data, client, database, collection):
     :type collection: str
     '''
     
-    db = Database(client, database)
-    col = Collection(db, collection)
-
+    col = dbncol(client, collection, database)
     # create the appropriate filters and update types using the data in the dictionary
     if collection == 'instant':
         filters = {'zipcode':data['zipcode'], 'instant':data['instant']}
@@ -177,11 +189,11 @@ def load_weather(data, client, database, collection):
     :param collection: the database collection to be used
     :type collection: str
     ''' 
+    
     # decide how to handle the loading process depending on where the document will be loaded.
     if collection == 'instant':
         # set the appropriate database collections, filters and update types
-        db = Database(client, database)
-        col = Collection(db, collection)
+        col = dbncol(client, collection, database)
         # check for old version conditions
         if 'reference_time' in data:
             filters = {'zipcode':data['zipcode'], 'instant':data['reference_time']}
@@ -198,8 +210,7 @@ def load_weather(data, client, database, collection):
         except DuplicateKeyError:
             return(f'DuplicateKeyError, could not insert data into {collection}.')
     elif collection == 'observed' or collection == 'forecasted':
-        db = Database(client, database)
-        col = Collection(db, collection)
+        col = dbncol(client, collection, database)
         try:
             col.insert_one(data)
         except DuplicateKeyError:
@@ -224,9 +235,9 @@ def request_and_load(codes):
             continue
         n+=1
         load_weather(current, local_client, 'OWM', 'observed')
-        coords = current['coordinates']
+        coords = current['Weather']['coordinates']
         try:
-            forecasts = five_day(code, coords=coords)
+            forecasts = five_day(coords, code=code)
         except AttributeError:
             print(f'got AttributeError while collecting forecasts for {code}. Continuing to next code.')
             continue
