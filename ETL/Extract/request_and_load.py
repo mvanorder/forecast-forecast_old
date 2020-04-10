@@ -77,7 +77,6 @@ def get_current_weather(code=None, coords=None):
     :return: the raw weather object
     :type: json
     '''
-
     owm = OWM(loohoo_key)
 
     try:
@@ -106,13 +105,8 @@ def five_day(coords, code=None):
 
     Forecast = get_data_from_weather_api(owm, coords=coords).get_forecast()
     forecast = json.loads(Forecast.to_JSON())
-    if code:
-        forecast['zipcode'] = code
-    if coords:
-        forecast['coordinates'] = coords
-    forecast.pop('Location')
     forecast.pop('interval')
-    reception_time = forecast['reception_time'] # this is going to be added to the weathers array
+    # put each of these things into each of the objects in the forecasts array
     for cast in forecast['weathers']:
         cast['zipcode'] = forecast['zipcode']
         cast['instant'] = cast.pop('reference_time')
@@ -136,7 +130,7 @@ def dbncol(client, collection, database='test'):
     db = Database(client, database)
     col = Collection(db, collection)
     return col
-    
+
 def load_og(data, client, database, collection):
     # Legacy function...see load_weather() for loading needs
     ''' Load data to specified database collection. Also checks for a preexisting document with the same instant and zipcode, and updates
@@ -219,12 +213,12 @@ def request_and_load(codes):
     for code in codes:
         try:
             current = get_current_weather(code)
+            coords = current['coordinates'] 
         except AttributeError:
             print(f'got AttributeError while collecting current weather for {code}. Continuing to next code.')
             continue
         n+=1
         load_weather(current, local_client, 'test', 'observed')
-        coords = current['coordinates']
         try:
             forecasts = five_day(coords, code=code)
         except AttributeError:
