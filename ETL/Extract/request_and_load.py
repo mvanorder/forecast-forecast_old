@@ -18,12 +18,6 @@ from config import OWM_API_key_loohoo as loohoo_key, OWM_API_key_masta as masta_
 from config import port, host, user, password, socket_path
 
 
-owm_loohoo = OWM(loohoo_key)  # the owm objects for the separate api keys
-owm_masta = OWM(masta_key)  # the owm objects for the separate api keys
-port = port
-host = host
-
-
 def read_list_from_file(filename):
     """ Read the zip codes list from the csv file.
         
@@ -68,7 +62,7 @@ def get_data_from_weather_api(owm, zipcode=None, coords=None):
             time.sleep(1)
         tries += 1
     if tries == 4:
-        print('tried 3 times without response; breaking out and causing an error that will crash your current colleciton process...fix that!')
+        print('tried 3 times without response; moving to the next step!')
         return
     return result
 
@@ -83,23 +77,23 @@ def get_current_weather(code=None, coords=None):
     :return: the raw weather object
     :type: json
     '''
-    global owm_loohoo
-    owm = owm_loohoo
+
+    owm = OWM(loohoo_key)
 
     try:
         result = get_data_from_weather_api(owm, zipcode=code)
     except APICallTimeoutError:
-        owm = owm_loohoo
+        owm = OWM(loohoo_key)
     current = json.loads(result.to_JSON()) # the current weather for the given zipcode
     if code:
         current['zipcode'] = code
     current['coordinates'] = current['Location']['coordinates']
-    current['instant'] = 10800*(current['Weather']['reference_time']//10800 + 1)
-    current['Weather']['time_to_instant'] = current['instant'] - current['Weather'].pop('reference_time')
+    current['Weather']['instant'] = 10800*(current['Weather']['reference_time']//10800 + 1)
+    current['Weather']['time_to_instant'] = current['Weather']['instant'] - current['Weather'].pop('reference_time')
     current.pop('Location')
     return current
 
-def five_day(code=None, coords=None):
+def five_day(coords, code=None):
     ''' Get each weather forecast for the corrosponding coordinates
     
     :param coords: the latitude and longitude for which that that weather is being forecasted
@@ -108,8 +102,7 @@ def five_day(code=None, coords=None):
     :return five_day: the five day, every three hours, forecast for the zip code
     :type five_day: dict
     '''
-    global owm_masta
-    owm = owm_masta
+    owm = OWM(masta_key)
 
     Forecast = get_data_from_weather_api(owm, coords=coords).get_forecast()
     forecast = json.loads(Forecast.to_JSON())
@@ -123,7 +116,7 @@ def five_day(code=None, coords=None):
     for cast in forecast['weathers']:
         cast['zipcode'] = forecast['zipcode']
         cast['instant'] = cast.pop('reference_time')
-        cast['reception_time'] = reception_time
+        cast['time_to_instant'] = cast['instant'] - reception_time
     return forecast
 
 def dbncol(client, collection, database='test'):
@@ -159,9 +152,7 @@ def load_og(data, client, database, collection):
     :type collection: str
     '''
     
-    db = Database(client, database)
-    col = Collection(db, collection)
-
+    col = dbncol(client, collection, database)
     # create the appropriate filters and update types using the data in the dictionary
     if collection == 'instant':
         filters = {'zipcode':data['zipcode'], 'instant':data['instant']}
@@ -200,12 +191,11 @@ def load_weather(data, client, database, collection):
     if collection == 'instant' or collection == 'test_instants':
         # set the appropriate database collections, filters and update types
         if "Weather" in data:
-            filters = {'zipcode':data['Weather'].pop('zipcode'), 'instant':data['Weather'].pop('instant')}            
-            updates = {'$set': {'weather': data['Weather']}}
+            updates = {'$set': {'weather': data}} # add the weather to the instant document
         else:
-            filters = {'zipcode':data.pop('zipcode'), 'instant':data.pop('instant')}
             updates = {'$push': {'forecasts': data}} # append the forecast object to the forecasts list
         try:
+            filters = {'zipcode':data.pop('zipcode'), 'instant':data.pop('instant')}
             col.find_one_and_update(filters, updates,  upsert=True)
         except DuplicateKeyError:
             return(f'DuplicateKeyError, could not insert data into {collection}.')
@@ -236,7 +226,7 @@ def request_and_load(codes):
         load_weather(current, local_client, 'test', 'observed')
         coords = current['coordinates']
         try:
-            forecasts = five_day(code, coords=coords)
+            forecasts = five_day(coords, code=code)
         except AttributeError:
             print(f'got AttributeError while collecting forecasts for {code}. Continuing to next code.')
             continue
