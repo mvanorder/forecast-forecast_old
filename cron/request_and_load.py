@@ -223,7 +223,7 @@ def request_and_load(codes):
             print(f'got AttributeError while collecting current weather for {code}. Continuing to next code.')
             continue
         n+=1
-        load_weather(current, local_client, 'OWM', 'observed')
+        load_weather(current, local_client, 'OWM_stable', 'observed')
         coords = current['coordinates']
         try:
             forecasts = five_day(coords, code=code)
@@ -231,7 +231,7 @@ def request_and_load(codes):
             print(f'got AttributeError while collecting forecasts for {code}. Continuing to next code.')
             continue
         n+=1
-        load_weather(forecasts, local_client, 'OWM', 'forecasted')
+        load_weather(forecasts, local_client, 'OWM_stable', 'forecasted')
         # Wait for the next 60 second interval to resume making API calls
         if n==120 and time.time()-start_time <= 60:
             print(f'Waiting {60 - time.time() + start_time} seconds before resuming API calls.')
