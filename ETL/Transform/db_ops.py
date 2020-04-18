@@ -114,10 +114,10 @@ def copy_docs(col, destination_db, destination_col, filters={}, delete=False):
     :param filters: a filter for the documents to be copied from the collection. By default all collection docs will be copied
     :type filters: dict
     '''
-    
+    client = Client(host=host, port=port)
     original = col.find(filters).batch_size(1000)
     copy = []
-    for item in original[:10]:
+    for item in original:
         copy.append(item)
     destination = dbncol(client, collection=destination_col, database=destination_db)
     inserted_ids = destination.insert_many(copy).inserted_ids # list of the doc ids that were successfully inserted
@@ -136,10 +136,10 @@ if __name__ == "__main__":
     port = port
 
     client = Client(host=host, port=port)
-    col = dbncol(client, database='test', collection='forecasted')
-    copy_docs(col, 'OWM', 'forecasted_archive', delete=True)
-    col = dbncol(client, database='test', collection='observed')
-    copy_docs(col, 'OWM', 'observed_archive', delete=True)
+    # col = dbncol(client, database='test', collection='forecasted')
+    # copy_docs(col, 'OWM', 'forecasted_archive', delete=True)
+    # col = dbncol(client, database='test', collection='observed')
+    # copy_docs(col, 'OWM', 'observed_archive', delete=True)
     # collection = 'forecasted_archive'
     # col = dbncol(client, database=database, collection=collection)
     # copy_docs(col, 'test', 'forecasted', delete=True)
