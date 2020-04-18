@@ -319,7 +319,7 @@ def copy_docs(col, destination_db, destination_col, filters={}, delete=False):
 #     if type(inserted_ids) == dict:
 #         print('inserted_ids is a dict and I am converting the keys to strings...')
 #         convert_keys_to_string(inserted_ids)
-    print(f'Insertion complete: the inserted id\'s are: {inserted_ids}') # list of the doc ids that were successfully inserted
+    print('Insertion complete: the inserted id\'s are: {inserted_ids}') # list of the doc ids that were successfully inserted
     if delete == True:
         # remove all the documents from the origin collection
         for row in inserted_ids:
@@ -376,9 +376,7 @@ def copy_docs(col, destination_db, destination_col, filters={}, delete=False):
 #     else:
 #         print(f'COPIED docs in {col} to {destination}, that is {destination_db}.{destination_col}')
 
-__name__ = '__main__'
-if __name__ == "__main__":
-    print('make_instants imported and running main')
+def make_instants():
     client = Client(host=host, port=port)
     # set the database and collection to pull from
     database = "test"
@@ -398,6 +396,30 @@ if __name__ == "__main__":
     copy_docs(cast_col, database, 'cast_archive', delete=True)
     print('attempting to move those docs just sorted....I am assuming that this is every dcoument in the obs_temp collection')
     copy_docs(obs_col, database, 'obs_archive', delete=True)
+
+
+# __name__ = '__main__'
+# if __name__ == "__main__":
+    
+#     client = Client(host=host, port=port)
+#     # set the database and collection to pull from
+#     database = "test"
+#     cast_col = dbncol(client, "cast_temp", database=database)
+#     obs_col = dbncol(client, "obs_temp", database=database)
+#     inst_col = dbncol(client, "instant_temp", database=database)
+#     num_docs_cast = cast_col.count_documents({}) # get a count of the number of documents under the cursor so that you
+#     num_docs_obs = obs_col.count_documents({})   # can know when to break out of the while loop so not to cause error
+#     print(num_docs_obs, num_docs_cast)
+#     forecasts = cast_col.find({})
+#     observations = obs_col.find({})
+#     inst_col.create_index([('instant', pymongo.DESCENDING)])
+#     inst_col.bulk_write(make_load_list_from_cursor(forecasts))
+#     inst_col.bulk_write(make_load_list_from_cursor(observations))
+            
+#     print('attempting to move those docs just sorted....I am expecting that this is every document in the cast_temp collection')
+#     copy_docs(cast_col, database, 'cast_archive', delete=True)
+#     print('attempting to move those docs just sorted....I am assuming that this is every dcoument in the obs_temp collection')
+#     copy_docs(obs_col, database, 'obs_archive', delete=True)
 
 # __name__ = '__main__'
 # if __name__ == "__main__":
