@@ -77,7 +77,6 @@ def get_current_weather(code=None, coords=None):
     :return: the raw weather object
     :type: json
     '''
-
     owm = OWM(loohoo_key)
 
     try:
@@ -188,7 +187,7 @@ def load_weather(data, client, database, collection):
     ''' 
     col = dbncol(client, collection, database=database)
     # decide how to handle the loading process depending on where the document will be loaded.
-    if collection == 'instant' or collection == 'test_instants':
+    if collection == 'instant' or collection == 'test_instants' or collection == 'instant_temp':
         # set the appropriate database collections, filters and update types
         if "Weather" in data:
             updates = {'$set': {'weather': data}} # add the weather to the instant document
@@ -199,7 +198,7 @@ def load_weather(data, client, database, collection):
             col.find_one_and_update(filters, updates,  upsert=True)
         except DuplicateKeyError:
             return(f'DuplicateKeyError, could not insert data into {collection}.')
-    elif collection == 'observed' or collection == 'forecasted':
+    elif collection == 'observed' or collection == 'forecasted' or collection == 'obs_temp' or collection == 'cast_temp':
         try:
             col.insert_one(data)
         except DuplicateKeyError:
@@ -223,22 +222,32 @@ def request_and_load(codes):
             print(f'got AttributeError while collecting current weather for {code}. Continuing to next code.')
             continue
         n+=1
-        load_weather(current, local_client, 'OWM_stable', 'observed')
-        coords = current['coordinates']
+        coords = current['coordinates']         
         try:
             forecasts = five_day(coords, code=code)
         except AttributeError:
             print(f'got AttributeError while collecting forecasts for {code}. Continuing to next code.')
             continue
         n+=1
-        load_weather(forecasts, local_client, 'OWM_stable', 'forecasted')
-        # Wait for the next 60 second interval to resume making API calls
-        if n==120 and time.time()-start_time <= 60:
-            print(f'Waiting {60 - time.time() + start_time} seconds before resuming API calls.')
-            time.sleep(60 - time.time() + start_time)
-            start_time = time.time()
-            n = 0
-        i+=1
+        load_weather(current, local_client, 'owmap', 'obs_temp')
+        load_weather(forecasts, local_client, 'owmap', 'cast_temp')
+        
+        # if the api request rate is greater than 60 just keep going. Otherwise check how many requests have been made
+        # and if it's more than 120 start make_instants.
+        if n/2 / (time.time()-start_time) <= 1:
+            print('n/2 / time.time()-start_time <= 1')
+            i+=1
+            continue
+        else:
+            print('n/2 / time.time()-start_time > 1')
+            i+=1
+            if n>20:
+                print('about to start making instants')
+                import make_instants # run the file that creates instants from the documents just loaded
+                if time.time() - start_time < 60:
+                    print(f'Waiting {start_time+60 - time.time()} seconds before resuming API calls.')
+                    time.sleep(start_time - time.time() + 60)
+                    start_time = time.time()
     print(f'task took {time.time() -  start_start} seconds and processed {i} zipcodes')
 
 
