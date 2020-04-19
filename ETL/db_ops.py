@@ -1,10 +1,11 @@
-import time
+# import time
 
 from pymongo import MongoClient
-from pymongo.database import Database
-from pymongo.collection import Collection, ReturnDocument
-from pymongo.errors import ConnectionFailure, InvalidDocument, DuplicateKeyError, OperationFailure, ConfigurationError
-from urllib.parse import quote
+from pymongo.errors import ConnectionFailure, ConfigurationError
+# from pymongo.database import Database
+# from pymongo.collection import Collection, ReturnDocument
+# from pymongo.errors import ConnectionFailure, InvalidDocument, DuplicateKeyError, OperationFailure, ConfigurationError
+# from urllib.parse import quote
 
 from config import user, password, socket_path, host, port
 
@@ -63,83 +64,83 @@ def dbncol(client, collection, database='test'):
     col = Collection(db, collection)
     return col
 
-def load(data, client, database, collection):
-    ''' Load data to specified database collection. Also checks for a preexisting document with the same instant and 
-    zipcode, and updates it in the case that there was already one there.
+# def load(data, client, database, collection):
+#     ''' Load data to specified database collection. Also checks for a preexisting document with the same instant and 
+#     zipcode, and updates it in the case that there was already one there.
 
-    :param data: the dictionary created from the api calls
-    :type data: dict
-    :param client: a MongoClient instance
-    :type client: pymongo.MongoClient
-    :param database: the database to be used
-    :type database: str
-    :param collection: the database collection to be used
-    :type collection: str
-    '''
+#     :param data: the dictionary created from the api calls
+#     :type data: dict
+#     :param client: a MongoClient instance
+#     :type client: pymongo.MongoClient
+#     :param database: the database to be used
+#     :type database: str
+#     :param collection: the database collection to be used
+#     :type collection: str
+#     '''
 
-    col = dbncol(client, collection, database='test1')
+#     col = dbncol(client, collection, database='test1')
 
-    # set the appropriate database collections, filters and update types
-    if collection == 'instant':
-        filters = {'zipcode':data['zipcode'], 'instant':data['instant']}
-        updates = {'$push': {'forecasts': data}} # append the forecast object to the forecasts list
-        try:
-            # check to see if there is a document that fits the parameters. If there is, update it, if there isn't, upsert it
-            return col.find_one_and_update(filters, updates,  upsert=True)
-        except DuplicateKeyError:
-            return(f'DuplicateKeyError, could not insert data into {collection}.')
-    elif collection == 'observed' or collection == 'forecasted':
-        try:
-            col.insert_one(data)
-            return
-        except DuplicateKeyError:
-            return(f'DuplicateKeyError, could not insert data into {collection}.')
-    else:
-        try:
-            filters = {'zipcode':data['zipcode'], 'instant':data['instant']}
-            updates = {'$set': {'forecasts': data}} # append the forecast object to the forecasts list
-            return col.find_one_and_update(filters, updates,  upsert=True)
-        except DuplicateKeyError:
-            return(f'DuplicateKeyError, could not insert data into {collection}.')
+#     # set the appropriate database collections, filters and update types
+#     if collection == 'instant':
+#         filters = {'zipcode':data['zipcode'], 'instant':data['instant']}
+#         updates = {'$push': {'forecasts': data}} # append the forecast object to the forecasts list
+#         try:
+#             # check to see if there is a document that fits the parameters. If there is, update it, if there isn't, upsert it
+#             return col.find_one_and_update(filters, updates,  upsert=True)
+#         except DuplicateKeyError:
+#             return(f'DuplicateKeyError, could not insert data into {collection}.')
+#     elif collection == 'observed' or collection == 'forecasted':
+#         try:
+#             col.insert_one(data)
+#             return
+#         except DuplicateKeyError:
+#             return(f'DuplicateKeyError, could not insert data into {collection}.')
+#     else:
+#         try:
+#             filters = {'zipcode':data['zipcode'], 'instant':data['instant']}
+#             updates = {'$set': {'forecasts': data}} # append the forecast object to the forecasts list
+#             return col.find_one_and_update(filters, updates,  upsert=True)
+#         except DuplicateKeyError:
+#             return(f'DuplicateKeyError, could not insert data into {collection}.')
 
-def copy_docs(col, destination_db, destination_col, filters={}, delete=False):
-    ''' move or copy a collection within and between databases 
+# def copy_docs(col, destination_db, destination_col, filters={}, delete=False):
+#     ''' move or copy a collection within and between databases 
     
-    :param col: the collection to be copied
-    :type col: a pymongo collection
-    :param destination_col: the collection you want the documents copied into
-    :type destination_col: a pymongo.collection.Collection object
-    :param destination_db: the database with the collection you want the documents copied into
-    :type destination_db: a pymongo database pymongo.databse.Database
-    :param filters: a filter for the documents to be copied from the collection. By default all collection docs will be copied
-    :type filters: dict
-    '''
+#     :param col: the collection to be copied
+#     :type col: a pymongo collection
+#     :param destination_col: the collection you want the documents copied into
+#     :type destination_col: a pymongo.collection.Collection object
+#     :param destination_db: the database with the collection you want the documents copied into
+#     :type destination_db: a pymongo database pymongo.databse.Database
+#     :param filters: a filter for the documents to be copied from the collection. By default all collection docs will be copied
+#     :type filters: dict
+#     '''
     
-    original = col.find(filters).batch_size(1000)
-    copy = []
-    for item in original[:10]:
-        copy.append(item)
-    destination = dbncol(client, collection=destination_col, database=destination_db)
-    inserted_ids = destination.insert_many(copy).inserted_ids # list of the doc ids that were successfully inserted
-    if delete == True:
-        # remove all the documents from the origin collection
-        for item in inserted_ids:
-            filter = {'_id': item}
-            col.delete_one(filter)
-        print(f'MOVED docs from {col} to {destination}, that is {destination_db}.{destination_col}')
-    else:
-        print(f'COPIED docs in {col} to {destination}, that is {destination_db}.{destination_col}')
+#     original = col.find(filters).batch_size(1000)
+#     copy = []
+#     for item in original[:10]:
+#         copy.append(item)
+#     destination = dbncol(client, collection=destination_col, database=destination_db)
+#     inserted_ids = destination.insert_many(copy).inserted_ids # list of the doc ids that were successfully inserted
+#     if delete == True:
+#         # remove all the documents from the origin collection
+#         for item in inserted_ids:
+#             filter = {'_id': item}
+#             col.delete_one(filter)
+#         print(f'MOVED docs from {col} to {destination}, that is {destination_db}.{destination_col}')
+#     else:
+#         print(f'COPIED docs in {col} to {destination}, that is {destination_db}.{destination_col}')
 
 
-if __name__ == "__main__":
-    host = host
-    port = port
+# if __name__ == "__main__":
+#     host = host
+#     port = port
 
-    client = Client(host=host, port=port)
-    col = dbncol(client, database='test', collection='forecasted')
-    copy_docs(col, 'OWM', 'forecasted_archive', delete=True)
-    col = dbncol(client, database='test', collection='observed')
-    copy_docs(col, 'OWM', 'observed_archive', delete=True)
+#     client = Client(host=host, port=port)
+#     col = dbncol(client, database='test', collection='forecasted')
+#     copy_docs(col, 'OWM', 'forecasted_archive', delete=True)
+#     col = dbncol(client, database='test', collection='observed')
+#     copy_docs(col, 'OWM', 'observed_archive', delete=True)
     # collection = 'forecasted_archive'
     # col = dbncol(client, database=database, collection=collection)
     # copy_docs(col, 'test', 'forecasted', delete=True)
@@ -188,7 +189,7 @@ if __name__ == "__main__":
     #     if n == 120000:
     #         print('breaking and looking to delete all the documents just processed then restart the processing')
     #         break
-    client.close()
+    # client.close()
     # with open(filename, 'w') as f:
     #     for _id in updated_doc_ids:
     #         post = _id+'/n'
