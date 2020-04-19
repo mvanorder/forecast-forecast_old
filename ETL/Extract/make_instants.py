@@ -276,7 +276,7 @@ def copy_docs(col, destination_db, destination_col, filters={}, delete=False):
 def make_instants(client):
     ''' make the instant documents, as many as you can, with the data in the named database'''
 
-    database = "test"
+    database = "owm"
     cast_col = dbncol(client, "cast_temp", database=database)
     obs_col = dbncol(client, "obs_temp", database=database)
     inst_col = dbncol(client, "instant_temp", database=database)
