@@ -144,37 +144,28 @@ def update_command_for(data):
     :return: the command that will be used to find and update documents
     ''' 
     from pymongo import UpdateOne
-    
-
-
-
-{'zipcode': data['Weather'].pop('zipcode'), 'instant': data['Weather'].pop('instant')}
-{'zipcode': data.pop('zipcode'), 'instant': data.pop('instant')}
-
-
-
-
-    # if "Weather" in data:
-    #     filters = {'zipcode': data['Weather'].pop('zipcode'), 'instant': data['Weather'].pop('instant')}
-    #     updates = {'$set': {'weather': data['Weather']}}
-    ### this if for the processing of data in OWM.forecasted and OWM.observed.
     if "Weather" in data:
         try:
-            data['Weather']['time_to_instant'] =  data['Weather'].pop('reference_time') - data['reception_time']
-            filters = {'zipcode': data.pop('zipcode'), 'instant': data.pop('instant')}
+            filters = {'zipcode': data['Weather'].pop('zipcode'), 'instant': data['Weather'].pop('instant')}
             updates = {'$set': {'weather': data['Weather']}}
-        except KeyError:
-            print('caught KeyError')
-    # else:
-    #     filters = {'zipcode': data.pop('zipcode'), 'instant': data.pop('instant')}
-    #     updates = {'$push': {'forecasts': data}} # append the forecast object to the forecasts list
-    ### Same thing down here ###
+        except:
+        ### this if for the processing of data in OWM.forecasted and OWM.observed.
+            if "Weather" in data:
+                try:
+                    data['Weather']['time_to_instant'] =  data['Weather'].pop('reference_time') - data['reception_time']
+                    filters = {'zipcode': data.pop('zipcode'), 'instant': data.pop('instant')}
+                    updates = {'$set': {'weather': data['Weather']}}
+                except KeyError:
+                    print('caught KeyError')
+            else:
+                try:
+                    filters = {'zipcode': data.pop('zipcode'), 'instant': data.pop('instant')}
+                    updates = {'$push': {'forecasts': data}} 
+                except KeyError:
+                    print('caught keyerror')
     else:
-        try:
-            filters = {'zipcode': data.pop('zipcode'), 'instant': data.pop('instant')}
-            updates = {'$push': {'forecasts': data}} 
-        except KeyError:
-            print('caught keyerror')
+        filters = {'zipcode': data.pop('zipcode'), 'instant': data.pop('instant')}
+        updates = {'$push': {'forecasts': data}} # append the forecast object to the forecasts list
     return UpdateOne(filters, updates,  upsert=True)
 
 def delete_command_for(data):
@@ -187,32 +178,23 @@ def delete_command_for(data):
     ''' 
     from pymongo import DeleteOne
 
-
-{'zipcode': data['Weather'].pop('zipcode'), 'instant': data['Weather'].pop('instant')}
-{'zipcode': data.pop('zipcode'), 'instant': data.pop('instant')}
-
-
-
-
-    # if "Weather" in data:
-    #     filters = {'zipcode': data['Weather'].pop('zipcode'), 'instant': data['Weather'].pop('instant')}
-    #     updates = {'$set': {'weather': data['Weather']}}
-    ### this if for the processing of data in OWM.forecasted and OWM.observed.
+    # catch the error if this is processing data entered by another module or version of this one, but otherwise expect
+    # there to be 
     if "Weather" in data:
         try:
+            filters = {'zipcode': data['Weather'].pop('zipcode'), 'instant': data['Weather'].pop('instant')}
+            updates = {'$set': {'weather': data['Weather']}}
+        except KeyError:
+            # this if for the processing of data in OWM.forecasted and OWM.observed.
             data['Weather']['time_to_instant'] =  data['Weather'].pop('reference_time') - data['reception_time']
             filters = {'zipcode': data.pop('zipcode'), 'instant': data.pop('instant')}
             updates = {'$set': {'weather': data['Weather']}}
         except KeyError:
             print('caught KeyError')
-    # else:
-    #     filters = {'zipcode': data.pop('zipcode'), 'instant': data.pop('instant')}
-    #     updates = {'$push': {'forecasts': data}} # append the forecast object to the forecasts list
-    ### Same thing down here ###
     else:
         try:
             filters = {'zipcode': data.pop('zipcode'), 'instant': data.pop('instant')}
-            updates = {'$push': {'forecasts': data}} 
+            updates = {'$push': {'forecasts': data}} # append the forecast object to the forecasts list
         except KeyError:
             print('caught keyerror')
     return UpdateOne(filters, updates,  upsert=True)
@@ -225,28 +207,29 @@ def make_load_list_from_cursor(pymongoCursorOnWeather):
     :type pymongoCursorOnWeather: a pymongo cursor
     :return update_list: list of update commands for the weather objects on the cursor
     '''
-    
+
     update_list = []
     # check the first entry to know whether it's forecast or observation
     # print(pymongoCursorOnWeather.count_documents())
-    
     if 'Weather' in pymongoCursorOnWeather[0]:
-        print('it is Weather')
         for obj in pymongoCursorOnWeather:
             update_list.append(update_command_for(obj))
         return update_list
     else:
         for obj in pymongoCursorOnWeather:
+            # Trying things that will capture any of the formats published over the developemnet period.
             try:
                 if 'reception_time':
-                    casts = obj['weathers'] # use the weathers array from the forecast
+                    casts = obj['weathers'] # use the 'weathers' array from the forecast
                     for cast in casts:
                         cast['zipcode'] = obj['zipcode']
                         cast['time_to_instant'] = cast['instant'] - obj['reception_time']
                         update_list.append(update_command_for(cast))
                 else:    
-                    casts = obj['weathers'] # use the weathers array from the forecast
+                    casts = obj['weathers'] # use the 'weathers' array from the forecast
                     for cast in casts:
+                        # this is just setting the fields as I need them for each update object as it
+                        # gets loaded to the database
                         cast['zipcode'] = obj['zipcode']
                         cast['time_to_instant'] = cast['instant'] - cast['reception_time']
                         update_list.append(update_command_for(cast))
@@ -261,98 +244,50 @@ def make_load_list_from_cursor(pymongoCursorOnWeather):
                 print(f'printing to {filename}')
                 with open(filename, 'a') as f:
                     f.write(obj['_id']+'\n')
-                # print(obj['_id'])
         return update_list
 
-
-if __name__ == "__main__":
-    from db_ops import copy_docs
+def copy_docs(col, destination_db, destination_col, filters={}, delete=False):
+    ''' move or copy a collection within and between databases 
     
+    :param col: the collection to be copied
+    :type col: a pymongo collection or 
+    :param destination_col: the collection you want the documents copied into
+    :type destination_col: a pymongo.collection.Collection object
+    :param destination_db: the database with the collection you want the documents copied into
+    :type destination_db: a pymongo database pymongo.databse.Database
+    :param filters: a filter for the documents to be copied from the collection. By default all collection docs will be copied
+    :type filters: dict
+    '''
+
     client = Client(host=host, port=port)
-    # set the database and collection to pull from
-    database = "test"
+    copy = []
+    n=0
+    original = col.find(filters)
+    for item in col.find(filters):
+        copy.append(item)
+    destination = dbncol(client, collection=destination_col, database=destination_db)
+    inserted_ids = destination.insert_many(copy).inserted_ids
+    if delete == True:
+        # remove all the documents from the original collection
+        for row in inserted_ids:
+            filters = {'_id': row}
+            col.delete_one(filters)
+
+def make_instants(client):
+    ''' make the instant documents, as many as you can, with the data in the named database'''
+
+    database = "owmap"
     cast_col = dbncol(client, "cast_temp", database=database)
     obs_col = dbncol(client, "obs_temp", database=database)
     inst_col = dbncol(client, "instant_temp", database=database)
-    num_docs_cast = cast_col.count_documents({}) # get a count of the number of documents under the cursor so that you
-    num_docs_obs = obs_col.count_documents({})   # can know when to break out of the while loop so not to cause error
-    m, n, i = 0, 0, 0 # n to count the total number of documents sorted, i to track the number of passes of the loop
-    while m+1000 <= num_docs_casts and n+1000 <= num_docs_obs:
-        print('in the while loop with i={i}')
-        # this block will get 1000 forecast documents, create the bulk_write commands list, and execute the
-        # bulk write function.
-        forecasts = cast_col.find({})[n:n+1000]
-        observations = obs_col.find({})[n:n+1000]
-        inst_col.create_index([('instant', pymongo.DESCENDING)])
-        # within each line: create the update command for each ducument update, create the list of those updates,
-        # execute the bulk_write command on the list of updates, and finally set a dict of inserted object id's.
-        bwr_casts = inst_col.bulk_write(make_load_list_from_cursor(forecasts)).upserted_ids
-        m += 1000
-        print(bwr_forecasts)
-        bwr_obs = inst_col.bulk_write(make_load_list_from_cursor(observations)).upserted_ids
-        n += 1000
-        copy_docs(cast_col, database, 'cast_archive', bwr_casts, delete=True)
-        copy_docs(cast_col, database, 'obs_archive', bwr_obs, delete=True)
-        i += 1
-        print(f'sorted {n} forecast arrays after {i} main while loop iterations')
-    # repeat the commands from the while loop, this time on the last <1000 documents from the collection
-    forecasts = cast_col.find({})[n:]
-    observations = obs_col.find({})[n:]
+    forecasts = cast_col.find({})
+    observations = obs_col.find({})
     inst_col.create_index([('instant', pymongo.DESCENDING)])
-    # within each line: create the update command for each ducument update, create the list of those updates,
-    # execute the bulk_write command on the list of updates, and finally set a dict of inserted object id's.
-    bwr_casts = inst_col.bulk_write(make_load_list_from_cursor(forecasts)).upserted_ids
-    m += len(bwr_casts)
-    print(f'just sorted the last {len(bwr_casts) } documents from the "forecasted" collection')
-    print(bwr_casts)
-    print('starting sort job of the "observed" collection')
-    bwr_obs = inst_col.bulk_write(make_load_list_from_cursor(observations)).upserted_ids
-    n += len(bwr_obs)
-    print(f'just sorted the last {len(bwr_obs)} documents from the "observed" collection')
-    print('starting the copy and delete the sorted ')
-    copy_docs(cast_col, database, 'cast_archive', bwr_casts)
-    copy_docs(cast_col, database, 'obs_archive', bwr_obs)
-    
-    # print(f'{time.time()-start} seconds passed while sorting each weathers array and adding to instants')
-    # col.bulk_write(make_load_list_from_cursor(observations[:1000]))
-    # print(f'{time.time()-start} seconds passed while adding observations to instants')
-    
-    # collection = "observed"
-    # observations = find_data(client, database, collection)
-    # # set the collection to be updated
-    # collection = '4/11_1.6gb_cast_set_inst'
-    # start = time.time()
-    # # sort the forecasts into instants
-    # col = dbncol(client, collection, database=database)
-    # ### create a loop to break the bulk_write commands to parts to manage the index and avoid losing the cursor ###
-    # # n = 0
-    # # while forecasts:
-    # #     print(f'forecast {n}')
-    # #     if forecasts[:1000]:
-    # #         forecast_slice = forecasts[:1000]
-    # #     else:
-    # #         print('doing the last of the forecasts')
-    # #         forecast_slice = forecasts[:]
-    # #     ### Add an index on instants ###
-    # #     col.create_index([('instant', pymongo.DESCENDING)])
-    # #     col.bulk_write(make_load_list_from_cursor(forecast_slice))
-    # # while observations:
-    # #     print(f'observed {n}')
-    # #     if observations[:1000]:
-    # #         observations_slice = observations[:1000]
-    # #     else:
-    # #         print('dong the las of the observations')
-    # #         observations_slice = observations[:]
-    # #     ### Add an index on instants ###
-    #     # col.create_index([('instant', pymongo.DESCENDING)])
-    #     # col.bulk_write(make_load_list_from_cursor(observations_slice))
-    
-    # ### Add an index on instants ###
-    # col.create_index([('instant', pymongo.DESCENDING)])
-    # col.bulk_write(make_load_list_from_cursor(forecasts[:1000]))
-    # print('bulk wrote forecasts, starting observations')
-    # print(f'{time.time()-start} seconds passed while sorting each weathers array and adding to instants')
-    # col.bulk_write(make_load_list_from_cursor(observations[:1000]))
-    # print(f'{time.time()-start} seconds passed while adding observations to instants')
+    inst_col.bulk_write(make_load_list_from_cursor(forecasts))
+    inst_col.bulk_write(make_load_list_from_cursor(observations))
 
-    # from copy_collection
+    copy_docs(cast_col, database, 'cast_archive', delete=True)
+    copy_docs(obs_col, database, 'obs_archive', delete=True)
+
+
+client = Client(host=host, port=port)

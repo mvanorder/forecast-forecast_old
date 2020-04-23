@@ -1,4 +1,4 @@
-''' This will get the data from the weather api, make a few edits, and load it to the local database '''
+''' This will only get the data from the weather api, make a few edits, and load it to the local database '''
 
 import os
 import json
@@ -18,12 +18,6 @@ from config import OWM_API_key_loohoo as loohoo_key, OWM_API_key_masta as masta_
 from config import port, host, user, password, socket_path
 
 
-# owm_loohoo = OWM(loohoo_key)  # the owm objects for the separate api keys
-# owm_masta = OWM(masta_key)  # the owm objects for the separate api keys
-# port = port
-# host = host
-
-
 def read_list_from_file(filename):
     """ Read the zip codes list from the csv file.
         
@@ -34,7 +28,7 @@ def read_list_from_file(filename):
         return z_list.read().strip().split(',')
 
 def get_data_from_weather_api(owm, zipcode=None, coords=None):
-    ''' Handle the API call errors for weatehr and forecast type calls.
+    ''' Makes api calls for observations and forecasts and handles the API call errors.
 
     :param owm: the OWM API object
     :type owm: pyowm.OWM
@@ -83,19 +77,19 @@ def get_current_weather(code=None, coords=None):
     :return: the raw weather object
     :type: json
     '''
-    global loohoo_key
     owm = OWM(loohoo_key)
 
     try:
         result = get_data_from_weather_api(owm, zipcode=code)
     except APICallTimeoutError:
-        owm = owm_loohoo
+        owm = OWM(loohoo_key)
     current = json.loads(result.to_JSON()) # the current weather for the given zipcode
     if code:
         current['Weather']['zipcode'] = code
-    current['Weather']['coordinates'] = current['Location']['coordinates']
+    current['coordinates'] = current['Location']['coordinates']
     current['Weather']['instant'] = 10800*(current['Weather']['reference_time']//10800 + 1)
     current['Weather']['time_to_instant'] = current['Weather']['instant'] - current['Weather'].pop('reference_time')
+    current.pop('Location')
     return current
 
 def five_day(coords, code=None):
@@ -107,19 +101,21 @@ def five_day(coords, code=None):
     :return five_day: the five day, every three hours, forecast for the zip code
     :type five_day: dict
     '''
-    global masta_key
     owm = OWM(masta_key)
 
     Forecast = get_data_from_weather_api(owm, coords=coords).get_forecast()
     forecast = json.loads(Forecast.to_JSON())
+    if code:
+        forecast['zipcode'] = code
+    if coords:
+        forecast['coordinates'] = coords
+    forecast.pop('Location')
     forecast.pop('interval')
-    # put each of these things into each of the objects in the forecasts array
+    reception_time = forecast['reception_time'] # this is going to be added to the weathers array
     for cast in forecast['weathers']:
-        if code:
-            cast['zipcode'] = code
-        cast['coordinates'] = forecast['Location']['coordinates']
-        cast['instant'] = cast.pop('reference_time') # rename ref_time to instant
-        cast['time_to_instant'] = cast['instant'] - forecast['reception_time']
+        cast['zipcode'] = forecast['zipcode']
+        cast['instant'] = cast.pop('reference_time')
+        cast['time_to_instant'] = cast['instant'] - reception_time
     return forecast
 
 def dbncol(client, collection, database='test'):
@@ -191,7 +187,11 @@ def load_weather(data, client, database, collection):
     ''' 
     col = dbncol(client, collection, database=database)
     # decide how to handle the loading process depending on where the document will be loaded.
+<<<<<<< HEAD
     if collection == 'instant' or collection == 'test_instants':
+=======
+    if collection == 'instant' or collection == 'test_instants' or collection == 'instant_temp':
+>>>>>>> offMaster
         # set the appropriate database collections, filters and update types
         if "Weather" in data:
             filters = {'zipcode':data['Weather'].pop('zipcode'), 'instant':data['Weather'].pop('instant')}            
@@ -200,10 +200,15 @@ def load_weather(data, client, database, collection):
             filters = {'zipcode':data.pop('zipcode'), 'instant':data.pop('instant')}
             updates = {'$push': {'forecasts': data}} # append the forecast object to the forecasts list
         try:
+            filters = {'zipcode':data.pop('zipcode'), 'instant':data.pop('instant')}
             col.find_one_and_update(filters, updates,  upsert=True)
         except DuplicateKeyError:
             return(f'DuplicateKeyError, could not insert data into {collection}.')
+<<<<<<< HEAD
     elif collection == 'observed' or collection == 'forecasted':
+=======
+    elif collection == 'observed' or collection == 'forecasted' or collection == 'obs_temp' or collection == 'cast_temp':
+>>>>>>> offMaster
         try:
             col.insert_one(data)
         except DuplicateKeyError:
@@ -227,22 +232,32 @@ def request_and_load(codes):
             print(f'got AttributeError while collecting current weather for {code}. Continuing to next code.')
             continue
         n+=1
-        load_weather(current, local_client, 'OWM', 'observed')
-        coords = current['Weather']['coordinates']
+        coords = current['coordinates']         
         try:
             forecasts = five_day(coords, code=code)
         except AttributeError:
             print(f'got AttributeError while collecting forecasts for {code}. Continuing to next code.')
             continue
         n+=1
-        load_weather(forecasts, local_client, 'OWM', 'forecasted')
-        # Wait for the next 60 second interval to resume making API calls
-        if n==120 and time.time()-start_time <= 60:
-            print(f'Waiting {60 - time.time() + start_time} seconds before resuming API calls.')
-            time.sleep(60 - time.time() + start_time)
-            start_time = time.time()
-            n = 0
-        i+=1
+        load_weather(current, local_client, 'owmap', 'obs_temp')
+        load_weather(forecasts, local_client, 'owmap', 'cast_temp')
+        
+        # if the api request rate is greater than 60 just keep going. Otherwise check how many requests have been made
+        # and if it's more than 120 start make_instants.
+        if n/2 / (time.time()-start_time) <= 1:
+            print('n/2 / time.time()-start_time <= 1')
+            i+=1
+            continue
+        else:
+            print('n/2 / time.time()-start_time > 1')
+            i+=1
+            if n>20:
+                print('about to start making instants')
+                import make_instants # run the file that creates instants from the documents just loaded
+                if time.time() - start_time < 60:
+                    print(f'Waiting {start_time+60 - time.time()} seconds before resuming API calls.')
+                    time.sleep(start_time - time.time() + 60)
+                    start_time = time.time()
     print(f'task took {time.time() -  start_start} seconds and processed {i} zipcodes')
 
 
