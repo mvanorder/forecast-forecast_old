@@ -128,7 +128,7 @@ def load_weather(data, client, database, collection):
         except DuplicateKeyError:
             return(f'DuplicateKeyError, could not insert data into {collection}.')
         except KeyError:
-            print(f'you just got keyerror on {zipcode} or {instant}')
+            print('you just got keyerror on something')
     elif collection == 'observed' or collection == 'forecasted':
         try:
             col.insert_one(data)
@@ -197,7 +197,7 @@ def delete_command_for(data):
             updates = {'$push': {'forecasts': data}} # append the forecast object to the forecasts list
         except KeyError:
             print('caught keyerror')
-    return UpdateOne(filters, updates,  upsert=True)
+    return DeleteOne(filters, updates,  upsert=True)
 
 
 def make_load_list_from_cursor(pymongoCursorOnWeather):
@@ -261,8 +261,6 @@ def copy_docs(col, destination_db, destination_col, filters={}, delete=False):
 
     client = Client(host=host, port=port)
     copy = []
-    n=0
-    original = col.find(filters)
     for item in col.find(filters):
         copy.append(item)
     destination = dbncol(client, collection=destination_col, database=destination_db)

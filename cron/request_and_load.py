@@ -158,14 +158,14 @@ def load_og(data, client, database, collection):
         updates = {'$push': {'forecasts': data}} # append the forecast object to the forecasts list
         try:
             # check to see if there is a document that fits the parameters. If there is, update it, if there isn't, upsert it
-            updated = col.find_one_and_update(filters, updates, upsert=True, return_document=ReturnDocument.AFTER)
+            col.find_one_and_update(filters, updates, upsert=True)
 #             col.find_one_and_update(filters, updates,  upsert=True)
             return
         except DuplicateKeyError:
             return(f'DuplicateKeyError, could not insert data into {collection}.')
     elif collection == 'observed' or collection == 'forecasted':
         try:
-            updated = col.insert_one(data)
+            col.insert_one(data)
         except DuplicateKeyError:
             return(f'DuplicateKeyError, could not insert data into {collection}.')
 
@@ -187,11 +187,7 @@ def load_weather(data, client, database, collection):
     ''' 
     col = dbncol(client, collection, database=database)
     # decide how to handle the loading process depending on where the document will be loaded.
-<<<<<<< HEAD
-    if collection == 'instant' or collection == 'test_instants':
-=======
     if collection == 'instant' or collection == 'test_instants' or collection == 'instant_temp':
->>>>>>> offMaster
         # set the appropriate database collections, filters and update types
         if "Weather" in data:
             filters = {'zipcode':data['Weather'].pop('zipcode'), 'instant':data['Weather'].pop('instant')}            
@@ -204,11 +200,7 @@ def load_weather(data, client, database, collection):
             col.find_one_and_update(filters, updates,  upsert=True)
         except DuplicateKeyError:
             return(f'DuplicateKeyError, could not insert data into {collection}.')
-<<<<<<< HEAD
-    elif collection == 'observed' or collection == 'forecasted':
-=======
     elif collection == 'observed' or collection == 'forecasted' or collection == 'obs_temp' or collection == 'cast_temp':
->>>>>>> offMaster
         try:
             col.insert_one(data)
         except DuplicateKeyError:
