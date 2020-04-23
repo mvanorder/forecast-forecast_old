@@ -10,7 +10,6 @@ from make_instants import make_instants
 from config import OWM_API_key_loohoo as loohoo_key, OWM_API_key_masta as masta_key
 from config import port, host, user, password, socket_path
 
-
 def get_and_make(codes):
     ''' Request weather data from the OWM api. Transform and load that data into a database.
     
@@ -37,8 +36,8 @@ def get_and_make(codes):
             print(f'got AttributeError while collecting forecasts for {code}. Continuing to next code.')
             continue
         n+=1
-        load_weather(current, client, 'test', 'obs_temp')
-        load_weather(forecasts, client, 'test', 'cast_temp')
+        load_weather(current, client, 'owmap', 'obs_temp')
+        load_weather(forecasts, client, 'owmap', 'cast_temp')
         
         # if the api request rate is greater than 60 just keep going. Otherwise check how many requests have been made
         # and if it's more than 120 start make_instants.
@@ -61,7 +60,6 @@ def get_and_make(codes):
     except:
         print('No more documents to sort into instants')
     print(f'task took {time.time() - start_start} seconds and processed {i} zipcodes')
-    
 
 if __name__ == '__main__':
     # this try block is to deal with the switching back and forth between computers with different directory names
