@@ -140,6 +140,7 @@ def request_and_load(codes):
     :param codes: a list of zipcodes
     :type codes: list of five-digit valid strings of US zip codes
     '''
+    nonlocal database
     # Begin a timer for the process and run the request and load process.
     start_start = time.time()
     print(f'task began at {start_start}')
@@ -167,9 +168,9 @@ def request_and_load(codes):
         # load_weather(forecasts, local_client, 'test', 'forecasted')
         # Wait for the next 60 second interval to resume making API calls
         if n==120 and time.time()-start_time <= 60:
-            col = dbncol(client, 'observed')            
+            col = dbncol(client, 'observed', database=database)
             col.insert_many(currents_list)
-            col = dbncol(client, 'forecasted')            
+            col = dbncol(client, 'forecasted', database=database)
             col.insert_many(forecasts_list)
             print(f'Waiting {60 - time.time() + start_time} seconds before resuming API calls.')
             time.sleep(60 - time.time() + start_time)
@@ -179,9 +180,9 @@ def request_and_load(codes):
             n = 0
         i+=1
     # insert whatever is left in the lists into their databases
-    col = dbncol(client, 'observed')            
+    col = dbncol(client, 'observed', database=database)            
     col.insert_many(currents_list)
-    col = dbncol(client, 'forecasted')            
+    col = dbncol(client, 'forecasted', database=database)
     col.insert_many(forecasts_list)
     print(f'task took {time.time() -  start_start} seconds and processed {i} zipcodes')
 
@@ -196,6 +197,6 @@ if __name__ == '__main__':
         filename = os.path.join(directory, 'ETL', 'Extract', 'resources', 'success_zipsNC.csv')
         codes = read_list_from_file(filename)
     client = MongoClient(host=host, port=port)
-    # database = 'OWM'
-    request_and_load(codes[:80])
+    database = 'owm_raw'
+    request_and_load(codes)
     client.close()
