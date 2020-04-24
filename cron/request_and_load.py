@@ -60,6 +60,11 @@ def get_data_from_weather_api(owm, zipcode=None, coords=None):
             loc = zipcode or 'lat: {}, lon: {}'.format(coords['lat'], coords['lon'])
             print(f'Timeout error with {loc} on attempt {tries}... waiting 1 second then trying again')
             time.sleep(1)
+        except ValueError:
+            try:
+                print(result)
+            except:
+                print('valueError, then exception caught when trying to print result')
         tries += 1
     if tries == 4:
         print('tried 3 times without response; moving to the next step!')
