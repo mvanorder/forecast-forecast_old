@@ -6,7 +6,7 @@ from pymongo.collection import Collection, ReturnDocument
 from pymongo.errors import ConnectionFailure, InvalidDocument, DuplicateKeyError, OperationFailure, ConfigurationError
 from urllib.parse import quote
 
-from config import user, password, socket_path, host, port
+from Extract.config import user, password, socket_path, host, port
 
 ''' Useful functions for forecast-forecast specific operations '''
 
@@ -129,69 +129,3 @@ def copy_docs(col, destination_db, destination_col, filters={}, delete=False):
         print(f'MOVED docs from {col} to {destination}, that is {destination_db}.{destination_col}')
     else:
         print(f'COPIED docs in {col} to {destination}, that is {destination_db}.{destination_col}')
-
-
-if __name__ == "__main__":
-    host = host
-    port = port
-
-    client = Client(host=host, port=port)
-    # col = dbncol(client, database='test', collection='forecasted')
-    # copy_docs(col, 'OWM', 'forecasted_archive', delete=True)
-    # col = dbncol(client, database='test', collection='observed')
-    # copy_docs(col, 'OWM', 'observed_archive', delete=True)
-    # collection = 'forecasted_archive'
-    # col = dbncol(client, database=database, collection=collection)
-    # copy_docs(col, 'test', 'forecasted', delete=True)
-    # updated_doc_ids = []
-    # result = col.find({}).batch_size(200)
-    # r = result[:120000]
-    # # change each document in restored instant collection. ** many, maybe all, the documents have all the fields for the observation
-    # # separtely key'd in the parent document. This will put each of those weather fields together under the field 'observation'
-    # from pprint import pprint
-    # n = 0
-    # fr_and_fu = {'passed' : 0, 'replaced' : 0, 'updated' : 0} # for counting the loop results
-    # for item in r:
-    #     if n%200 == 0:
-    #         print(f'processed {n} documents')
-    #     try:
-    #         ref_time = item.pop('reference_time')
-    #         item['observed'] = {
-    #             'clouds' : item.pop('clouds'),
-    #             'detailed_status' : item.pop('detailed_status'),
-    #             'humidity' : item.pop('humidity'),
-    #             'pressure' : item.pop('pressure'),
-    #             'rain' : item.pop('rain'),
-    #             'snow' : item.pop('snow'),
-    #             'status' : item.pop('status'),
-    #             'temperature' : item.pop('temperature'),
-    #             'weather_code' : item.pop('weather_code'),
-    #             'wind' : item.pop('wind'),
-    #             'time_to_instant': item['instant']-ref_time
-    #         }
-    #         n+=1
-    #     except KeyError:
-    #         updated_doc_ids.append(item['_id'])
-    #         fr_and_fu['passed'] += 1
-    #         n+=1
-    #         continue
-    #     filters = {'zipcode':item['zipcode'], 'instant':item['instant']}
-    #     updates = {'$set': item}
-    #     try:
-    #         col.find_one_and_replace(filters, item, upsert=True)
-    #         fr_and_fu['replaced'] += 1
-    #     except DuplicateKeyError:
-    #         col.find_one_and_update(filters, updates, upsert=True)
-    #         fr_and_fu['updated'] += 1
-    #     updated_doc_ids.append(item['_id'])
-    #     n += 1
-    #     if n == 120000:
-    #         print('breaking and looking to delete all the documents just processed then restart the processing')
-    #         break
-    client.close()
-    # with open(filename, 'w') as f:
-    #     for _id in updated_doc_ids:
-    #         post = _id+'/n'
-    #         f.write(post)
-    
-    
