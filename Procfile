@@ -1,0 +1,1 @@
+worker: python3 cron/get_and_make.py
