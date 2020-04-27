@@ -44,7 +44,7 @@ def get_data_from_weather_api(owm, zipcode=None, coords=None):
     while result is None and tries < 4:
         try:
             if coords:
-                result = owm.three_hours_forecast_at_coords(**coords)
+                result = owm.three_hours_forecast_at_coords(**coords, allow_raw=True)
             elif zipcode:
                 result = owm.weather_at_zip_code(zipcode, 'us')
         except APIInvalidSSLCertificateError:
