@@ -43,13 +43,13 @@ def Client(host=None, port=None, uri=None):
             print('connection made with local server, even though you asked for the remote server')
             return client
 
-def dbncol(client, collection, database=database):
+def dbncol(client, collection, database):
     ''' Make a connection to the database and collection given in the arguments.
 
     :param client: a MongoClient instance
     :type client: pymongo.MongoClient
     :param database: the name of the database to be used. It must be a database name present at the client
-    :type database: str
+    :type database: str where default is 'test'
     :param collection: the database collection to be used.  It must be a collection name present in the database
     :type collection: str
     
