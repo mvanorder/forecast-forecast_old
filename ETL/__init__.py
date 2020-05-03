@@ -1,8 +1,9 @@
 from urllib.parse import quote
 
-from pymongo import MongoClient
+import forecastforecast as ff
+# from pymongo import MongoClient
 
-from ETL.db_ops import Client
+from ff.ETL import db_ops# import Client
 from ETL.config import OWM_API_key_masta as masta, OWM_API_key_loohoo as loohoo
 from ETL.config import port, host, user, password, socket_path
 
