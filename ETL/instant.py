@@ -1,19 +1,25 @@
 ''' define the instant class and some useful scripts related to them '''
 
-class instant:
+class Instant:
 
-    def __init__(instant=int, zipcode=str, coordinates=dict, forecasts=list, observation=dict):
-        {'instant': instant,
-        'zipcode': zipcode,
-         'coordinates': coordinates,
-        'forecasts': forecasts,
-        'observation': observation
-        }
-    
-    def count(instant):
-        ''' Count the number of elemnets in the forecasts array '''
+    def __init__(self, instant=int, zipcode=str, coordinates=dict, forecasts=list, observations=dict):
         
-        return len(instant['forecats'])
+        self.inst = instant
+        self.zip = zipcode
+        self.coords = coordinates
+        self.casts = forecasts
+        self.obs = observations
+        self.as_dict = {'instant': instant,
+                        'zipcode': zipcode,
+                        'coordinates': coordinates,
+                        'forecasts': forecasts,
+                        'observations': observations
+                        }
+    
+    def count(self):
+        ''' Count the number of elemnets in the forecasts array '''
+
+        return len(self.casts)
         
 
 def count(instant):
