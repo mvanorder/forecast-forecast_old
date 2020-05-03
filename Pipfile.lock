@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "972a86da7c4ee0579ff177bf7403a53924f1ab6b9dae96bb794791377dc224a4"
+            "sha256": "ca867f0ef442afd28943f795c47bd62ff80ec0f40a9572d62172d50ed7e3ce10"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -109,7 +109,7 @@
                 "sha256:8fd41a18536f4d6c432bc6d9ea69994efb1ea9b43688cf19523659b6f4d86cf7",
                 "sha256:f9fbd40cdc6c3e5f8a88309e19d82943f0a0322edd552c1ee37fc1341a643f55"
             ],
-            "path": "./pyowm/dist/pyowm-2.10.0-py3-none-any.whl",
+            "path": "../pyowm/dist/pyowm-2.10.0-py3-none-any.whl",
             "version": "==2.10.0"
         },
         "requests": {
