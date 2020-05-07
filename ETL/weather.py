@@ -1,6 +1,16 @@
-''' Defines the Weather class. '''
+''' Defines the Weather class and related functions. '''
 
 import time
+import json
+
+from pyowm import OWM
+from pyowm.weatherapi25.forecast import Forecast
+from pyowm.exceptions.api_response_error import NotFoundError
+from pyowm.exceptions.api_call_error import APICallTimeoutError
+from pyowm.exceptions.api_call_error import APIInvalidSSLCertificateError
+
+from config import OWM_API_key_loohoo as loohoo_key
+from config import OWM_API_key_masta as masta_key
 
 
 class Weather:
@@ -8,36 +18,37 @@ class Weather:
     for a given instant in time at a specified location.
     '''
     
-    def __init__(location, _type, data=None):
+    def __init__(self, location, _type, data=None):
         '''
         :param location: can be either valid US zipcode or coordinate dictionary
-        :type location: If this param is a zipcode, it should be str, otherwise dict
+        :type location: If this param is a zipcode, it should be str, otherwise
+        dict
         :param _type: Indicates whether its data is observational or forecasted
         :type _type: string  It must be either 'observation' or 'forecast'
         '''
-     
-        self.time = time.time() // 1
-        self._id = f'{str(location)}{str(self.time)}'
+
         self.type = _type
         self.loc = location
         self.weather = data
-        # if type(_type) == 'observation' and get == True:
-        #     self.weather = get_current_weather(location)
-        # if type(_type) == 'forecast' and get == True:
-        #     self.weather = five_day(location)
-        self.as_dict = {'_id': self.time,
+        # make the _id for each weather according to its reference time
+        if _type == 'forecast' and 'reference_time' in data:
+            self._id = f'{str(location)}{str(data["reference_time"])}'
+        elif _type == 'observation' and 'reference_time' in data:
+            self._id = f'{str(location)}{str(10800 * (data["reference_time"]//10800 + 1))}'
+        self.as_dict = {'_id': self._id,
                        '_type': self.type,
                         'weather': self.weather
                        }
-        
+
     def to_inst(self):
         ''' This will find the id'd Instant and add the Weather to it according 
         to its type. '''
         
-        weather = self.as_dict
+        from instant import Instant
+        
         if self.type == 'observation':
             _id = self._id
-            instants[_id]['observation'] = weather
+            instants.setdefault(_id, Instant(_id, observations=self.weather))
             return
         if self.type == 'forecast':
             _id = self._id
@@ -45,30 +56,28 @@ class Weather:
             return
 
 
-# def get_data_from_weather_api(owm, zipcode=None, coords=None):
 def get_data_from_weather_api(owm, location):
     ''' Makes api calls for observations and forecasts and handles the API call errors.
 
     :param owm: the OWM API object
     :type owm: pyowm.OWM
-    :param zipcode: the zipcode reference for the API call
-    :type zipcode: string
-    :param coords: the latitude and longitude coordinates reference for the API call
-    :type coords: 2-tuple 
+    :param location: the coordinates or zipcode reference for the API call.
+    :type location: if location is a zipcode, then type is a string;
+    if location is a coordinates, then tuple or dict.
 
     returns: the API data
     '''
+    
     result = None
     tries = 1
     while result is None and tries < 4:
         try:
             if type(location) == dict:
-                print('''in get_data_from_weather_api() and wondering if you 
-                      really wanted to put a type check for dicts... you may
-                      have wanted to use tuple''')
                 result = owm.three_hours_forecast_at_coords(**location)
+                return result
             elif type(location) == str:
                 result = owm.weather_at_zip_code(location, 'us')
+                return result
         except APIInvalidSSLCertificateError:
             loc = zipcode or 'lat: {}, lon: {}'.format(coords['lat'], coords['lon'])
             print(f'SSL error with {loc} on attempt {tries} ...trying again')
@@ -84,17 +93,15 @@ def get_data_from_weather_api(owm, location):
             time.sleep(1)
         tries += 1
     if tries == 4:
-        print('tried 3 times without response; breaking out and causing an error that will crash your current colleciton process...fix that!')
+        print('tried 3 times without response; moving to the next location')
         return ### sometime write something to keep track of the zip and instant that isn't collected ###
-    return result
 
 def get_current_weather(location):
     ''' Get the current weather for the given zipcode or coordinates.
 
-    :param code: the zip code to find weather data about
-    :type code: string
-    :param coords: the coordinates for the data you want
-    :type coords: 2-tuple
+    :param location: the coordinates or zipcode reference for the API call.
+    :type location: if location is a zipcode, then type is a string;
+    if location is a coordinates, then tuple or dict.
 
     :return: the raw weather object
     :type: json
@@ -102,18 +109,19 @@ def get_current_weather(location):
     owm = OWM(loohoo_key)
 
     m = 0
+    # Try several times to get complete the API request
     while m < 4:
         try:
+            # get the raw data from the OWM and make a Weather from it
             result = get_data_from_weather_api(owm, location)
-            current = json.loads(result.to_JSON()) # the current weather for the given zipcode
-#             if code:
-#                 current['zipcode'] = location
-            return current
+            result = json.loads(result.to_JSON())  # the current weather for the given zipcode
+            weather = Weather(location, 'observation', result['Weather'])
+            return weather
         except APICallTimeoutError:
             owm = owm_loohoo
             m += 1
     print(f'Did not get current weather for {location} and reset owm')
-    return ### after making the weather class, return one of them ###
+    return
     
 def five_day(location):
     ''' Get each weather forecast for the corrosponding coordinates
@@ -121,14 +129,19 @@ def five_day(location):
     :param coords: the latitude and longitude for which that that weather is being forecasted
     :type coords: tuple containing the latitude and logitude for the forecast
 
-    :return forecast: the five day, every three hours, forecast for the zip code
-    :type forecast: dict
+    :return casts: the five day, every three hours, forecast for the zip code
+    :type casts: dict
     '''
 
     owm = OWM(masta_key)
 
     Forecast = get_data_from_weather_api(owm, location).get_forecast()
     forecast = json.loads(Forecast.to_JSON())
-    if codes:
-        forecast['zipcode'] = code
-    return forecast
+    casts = [] # This is for the weather objects created in the for loop below.
+    for data in forecast['weathers']:
+        # Make an _id for the next Weather to be created, create the weather, 
+        # append it to the casts list.
+        instant = data['reference_time']
+        data['_id'] = f'{str(location)}{str(instant)}'
+        casts.append(Weather(location, 'forecast', data))
+    return casts
