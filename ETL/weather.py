@@ -1,10 +1,6 @@
-import time
+''' Defines the Weather class. '''
 
-from pyowm import OWM
-from pyowm.weatherapi25.forecast import Forecast
-from pyowm.exceptions.api_response_error import NotFoundError
-from pyowm.exceptions.api_call_error import APICallTimeoutError
-from pyowm.exceptions.api_call_error import APIInvalidSSLCertificateError
+import time
 
 
 class Weather:
@@ -12,35 +8,42 @@ class Weather:
     for a given instant in time at a specified location.
     '''
     
-    def __init__(location, _type):
+    def __init__(location, _type, data=None):
         '''
         :param location: can be either valid US zipcode or coordinate dictionary
         :type location: If this param is a zipcode, it should be str, otherwise dict
         :param _type: Indicates whether its data is observational or forecasted
         :type _type: string  It must be either 'observation' or 'forecast'
         '''
-        
-        self.time = time.time()//1
+     
+        self.time = time.time() // 1
+        self._id = f'{str(location)}{str(self.time)}'
         self.type = _type
-        if type(location) == str:
-            self.loc = location
-        elif type(location) == dict:
-            self.loc == location
-        else:
-            print('''I'm trying to instantiate a Weather and you've given something
-                  neither string nor dict!''')
-        if type(_type) == 'observation':
-            self.weather = 
-        self.as_dict = {'time': self.time,
-                       'location': self.loc,
+        self.loc = location
+        self.weather = data
+        # if type(_type) == 'observation' and get == True:
+        #     self.weather = get_current_weather(location)
+        # if type(_type) == 'forecast' and get == True:
+        #     self.weather = five_day(location)
+        self.as_dict = {'_id': self.time,
                        '_type': self.type,
                         'weather': self.weather
                        }
         
-    def to_inst(instant):
+    def to_inst(self):
         ''' This will find the id'd Instant and add the Weather to it according 
         to its type. '''
         
+        weather = self.as_dict
+        if self.type == 'observation':
+            _id = self._id
+            instants[_id]['observation'] = weather
+            return
+        if self.type == 'forecast':
+            _id = self._id
+            instants[_id]['forecasts'].append(weather)
+            return
+
 
 # def get_data_from_weather_api(owm, zipcode=None, coords=None):
 def get_data_from_weather_api(owm, location):
@@ -118,12 +121,13 @@ def five_day(location):
     :param coords: the latitude and longitude for which that that weather is being forecasted
     :type coords: tuple containing the latitude and logitude for the forecast
 
-    :return five_day: the five day, every three hours, forecast for the zip code
-    :type five_day: dict
+    :return forecast: the five day, every three hours, forecast for the zip code
+    :type forecast: dict
     '''
+
     owm = OWM(masta_key)
 
-    Forecast = get_data_from_weather_api(owm, coords=coords).get_forecast()
+    Forecast = get_data_from_weather_api(owm, location).get_forecast()
     forecast = json.loads(Forecast.to_JSON())
     if codes:
         forecast['zipcode'] = code

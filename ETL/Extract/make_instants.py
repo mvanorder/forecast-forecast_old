@@ -289,5 +289,5 @@ def make_instants(client):
     copy_docs(cast_col, database, 'cast_archive', delete=True)
     copy_docs(obs_col, database, 'obs_archive', delete=True)
 
-if __name__ == "__main__":
-    client = Client(host=host, port=port)
+
+client = Client(host=host, port=port)
