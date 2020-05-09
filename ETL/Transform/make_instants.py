@@ -1,7 +1,10 @@
-''' Make the instant documents. Pull all documents from the "forecasted" and the "observed" database collections. Sort those
-documents according to the type: forecasted documents get their forecast arrays sorted into forecast lists within the documents
-having the same zipcode and instant values, observed documents are inserted to the same document corrosponding to the 
-zipcode and instant values. '''
+''' Make the instant documents. Pull all documents from the "forecasted" and
+the "observed" database collections. Sort those documents according to the
+type: forecasted documents get their forecast arrays sorted into forecast lists
+within the documents having the same zipcode and instant values, observed
+documents are inserted to the same document corrosponding to the zipcode and
+instant values. 
+'''
 
 
 import time
@@ -10,7 +13,8 @@ import pymongo
 from pymongo import MongoClient
 from pymongo.database import Database
 from pymongo.collection import Collection, ReturnDocument
-from pymongo.errors import ConnectionFailure, InvalidDocument, DuplicateKeyError, OperationFailure, ConfigurationError
+from pymongo.errors import ConnectionFailure, InvalidDocument, OperationFailure
+from pymongo.errors import DuplicateKeyError, ConfigurationError
 from urllib.parse import quote
 
 from config import user, password, socket_path
@@ -19,15 +23,16 @@ from config import user, password, socket_path
 # use the local host and port for all the primary operations
 port = 27017
 host = 'localhost'
-# use the remote host and port when the instant document is complete and is ready for application
+# use the remote host and port when the instant document is complete
 password = quote(password)    # url encode the password for the mongodb uri
 uri = "mongodb+srv://%s:%s@%s" % (user, password, socket_path)
 print(uri)
 
 
 def Client(host=None, port=None, uri=None):
-    ''' Create and return a pymongo MongoClient object. Connect with the given parameters if possible, switch to local if the
-    remote connection is not possible, using the default host and port.
+    ''' Create and return a pymongo MongoClient object. Connect with the given
+    parameters if possible, switch to local if the remote connection is not
+    possible, using the default host and port.
     
     :param host: the local host to be used. defaults within to localhost
     :type host: sting
@@ -43,21 +48,25 @@ def Client(host=None, port=None, uri=None):
         except ConnectionFailure:
             # connect to the remote server if a valid uri is given
             if uri:
-                print('caught ConnectionFailure on local server. Trying to make it with remote')
+                print('''caught ConnectionFailure on local server. Trying to make
+                      it with remote''')
                 client = MongoClient(uri)
                 print(f'established remote MongoClient on URI={uri}')
                 return client
             print('caught ConnectionFailure on local server. Returning None')
             return None
     elif uri:
-        # verify that the connection with the remote server is active and switch to the local server if it's not
+        # verify that the connection with the remote server is active and
+        # switch to the local server if it's not
         try:
             client = MongoClient(uri)
             return client
         except ConfigurationError:
-            print(f'Caught configurationError in client() for URI={uri}. It was likely triggered by a DNS timeout.')
+            print(f'''Caught configurationError in client() for URI={uri}. It
+                  was likely triggered by a DNS timeout.''')
             client = MongoClient(host=host, port=port)
-            print('connection made with local server, even though you asked for the remote server')
+            print('''connection made with local server, even though you asked for
+                  the remote server ''')
             return client
 
 def dbncol(client, collection, database='test'):
@@ -65,9 +74,11 @@ def dbncol(client, collection, database='test'):
 
     :param client: a MongoClient instance
     :type client: pymongo.MongoClient
-    :param database: the name of the database to be used. It must be a database name present at the client
+    :param database: the name of the database to be used. It must be a database
+    name present at the client
     :type database: str
-    :param collection: the database collection to be used.  It must be a collection name present in the database
+    :param collection: the database collection to be used.  It must be a
+    collection name present in the database
     :type collection: str
     
     :return col: the collection to be used
@@ -219,7 +230,7 @@ def delete_command_for(data):
 
 
 def make_load_list_from_cursor(pymongoCursorOnWeather):
-    ''' create the list of objects from the database to be loaded through bulk_write() 
+    ''' Create a list of objects from the database to be bulk_write loaded 
     
     :param pymongoCursorOnWeather: it is just what the name says it is
     :type pymongoCursorOnWeather: a pymongo cursor

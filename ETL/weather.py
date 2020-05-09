@@ -11,6 +11,9 @@ from pyowm.exceptions.api_call_error import APIInvalidSSLCertificateError
 
 from config import OWM_API_key_loohoo as loohoo_key
 from config import OWM_API_key_masta as masta_key
+# from config import client
+
+# from Extract.make_instants import find_data
 
 
 class Weather:
@@ -33,8 +36,8 @@ class Weather:
         # make the _id for each weather according to its reference time
         if _type == 'forecast' and 'reference_time' in data:
             self._id = f'{str(location)}{str(data["reference_time"])}'
-        elif _type == 'observation' and 'reference_time' in data:
-            self._id = f'{str(location)}{str(10800 * (data["reference_time"]//10800 + 1))}'
+        elif _type == 'observation' and 'Weather' in data:
+            self._id = f'{str(location)}{str(10800 * (data["Weather"]["reference_time"]//10800 + 1))}'
         self.as_dict = {'_id': self._id,
                        '_type': self.type,
                         'weather': self.weather
@@ -42,7 +45,9 @@ class Weather:
 
     def to_inst(self):
         ''' This will find the id'd Instant and add the Weather to it according 
-        to its type. '''
+        to its type. 
+        *** NOTE: the object instants must be in the function's namespace ***
+        '''
         
         from instant import Instant
         
@@ -57,7 +62,8 @@ class Weather:
 
 
 def get_data_from_weather_api(owm, location):
-    ''' Makes api calls for observations and forecasts and handles the API call errors.
+    ''' Makes api calls for observations and forecasts and handles the API call
+    errors.
 
     :param owm: the OWM API object
     :type owm: pyowm.OWM
@@ -88,13 +94,17 @@ def get_data_from_weather_api(owm, location):
                 owm_masta = OWM(masta_key)
                 owm = owm_masta
         except APICallTimeoutError:
-            loc = location[:] or 'lat: {}, lon: {}'.format(location['lat'], location['lon'])
-            print(f'Timeout error with {loc} on attempt {tries}... waiting 1 second then trying again')
+            loc = location[:] or 'lat: {}, lon: {}'.format(location['lat'],
+                                                           location['lon'])
+            print(f'''Timeout error with {loc} on attempt {tries}... waiting 1
+                  second then trying again''')
             time.sleep(1)
         tries += 1
     if tries == 4:
-        print('tried 3 times without response; moving to the next location')
-        return ### sometime write something to keep track of the zip and instant that isn't collected ###
+        print('''tried 3 times without response; breaking out and causing an
+        error that will crash your current colleciton process...fix that!''')
+        return ### sometime write something to keep track of the zip and
+                ### instant that isn't collected ###
 
 def get_current_weather(location):
     ''' Get the current weather for the given zipcode or coordinates.
@@ -115,7 +125,10 @@ def get_current_weather(location):
             # get the raw data from the OWM and make a Weather from it
             result = get_data_from_weather_api(owm, location)
             result = json.loads(result.to_JSON())  # the current weather for the given zipcode
-            weather = Weather(location, 'observation', result['Weather'])
+            result['Weather']['location'] = result['Location'].pop('coordinates')
+            result.pop('reception_time')
+            result.pop('Location')
+            weather = Weather(location, 'observation', result)
             return weather
         except APICallTimeoutError:
             owm = owm_loohoo
@@ -126,7 +139,8 @@ def get_current_weather(location):
 def five_day(location):
     ''' Get each weather forecast for the corrosponding coordinates
     
-    :param coords: the latitude and longitude for which that that weather is being forecasted
+    :param coords: the latitude and longitude for which that that weather is
+    being forecasted
     :type coords: tuple containing the latitude and logitude for the forecast
 
     :return casts: the five day, every three hours, forecast for the zip code
@@ -142,6 +156,17 @@ def five_day(location):
         # Make an _id for the next Weather to be created, create the weather, 
         # append it to the casts list.
         instant = data['reference_time']
-        data['_id'] = f'{str(location)}{str(instant)}'
         casts.append(Weather(location, 'forecast', data))
     return casts
+
+
+# from Extract.make_instants import find_data
+# # set database and collection for testing
+# database = 'test'
+# collection = 'instant_temp'
+# # create a dict to hold the instants pulled from the database
+# instants = {}
+# data = find_data(client, database, collection)
+# # add each doc to instants and set its key and _id to the same values
+# for item in data:
+#     instants[f'{item["_id"]}'] = item['_id']

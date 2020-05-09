@@ -291,3 +291,4 @@ def make_instants(client):
 
 
 client = Client(host=host, port=port)
+remote_client = Client(uri)
