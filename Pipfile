@@ -6,8 +6,8 @@ verify_ssl = true
 [dev-packages]
 
 [packages]
-pymongo = "*"
 pyowm = {path = "../pyowm/dist/pyowm-2.10.0-py3-none-any.whl"}
+pymongo = "*"
 
 [requires]
 python_version = "3.7"
