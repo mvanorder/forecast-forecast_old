@@ -21,3 +21,19 @@ def key_list(d=dict):
     for k in keys:
         key_list.append(k)
     return key_list
+
+def all_keys(d):
+    ''' Get all the dicitonary and nested "dot format" nested dictionary keys
+    from a dict, add them to a list, return the list.
+    
+    :param d: A python dictionary
+    :return: A list of every key in the dictionary
+    '''
+    keys = []    
+    for key, value in d.items():
+        if isinstance(d[key], dict):
+            for sub_key in all_keys(value):
+                keys.append(f'{key}.{sub_key}')
+        else:
+            keys.append(str(key))
+    return keys
