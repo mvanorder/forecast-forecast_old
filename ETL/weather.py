@@ -11,6 +11,7 @@ from pyowm.exceptions.api_call_error import APIInvalidSSLCertificateError
 
 from config import OWM_API_key_loohoo as loohoo_key
 from config import OWM_API_key_masta as masta_key
+from instant import Instant
 # from config import client
 
 # from Extract.make_instants import find_data
@@ -43,21 +44,21 @@ class Weather:
                         'weather': self.weather
                        }
 
-    def to_inst(self):
+    def to_inst(self, instants):
         ''' This will find the id'd Instant and add the Weather to it according 
-        to its type. 
+        to its type.
+        
         *** NOTE: the object instants must be in the function's namespace ***
         '''
-        
-        from instant import Instant
+
         
         if self.type == 'observation':
-            _id = self._id
-            instants.setdefault(_id, Instant(_id, observations=self.weather))
+            instants.setdefault(self._id, Instant(self._id, observations=self.weather))
             return
         if self.type == 'forecast':
-            _id = self._id
-            instants[_id]['forecasts'].append(weather)
+            instants.setdefault(self._id, Instant(self._id)).casts.append(self.weather)
+#             instants.setdefault(self._id, Instant(self._id))['forecasts'].append(self.weather)
+#             instants[self._id]['forecasts'].append(weather)
             return
 
 
@@ -84,17 +85,19 @@ def get_data_from_weather_api(owm, location):
             elif type(location) == str:
                 result = owm.weather_at_zip_code(location, 'us')
                 return result
-        except APIInvalidSSLCertificateError:
-            loc = zipcode or 'lat: {}, lon: {}'.format(coords['lat'], coords['lon'])
-            print(f'SSL error with {loc} on attempt {tries} ...trying again')
+        except APIInvalidSSLCertificateError as e:
+            print(str(e))
             if type(location) == dict:
+                loc = 'lat: {}, lon: {}'.format(location['lat'], location['lon'])
                 owm_loohoo = OWM(loohoo_key)
                 owm = owm_loohoo
             elif type(location) == str:
+                loc = location
                 owm_masta = OWM(masta_key)
                 owm = owm_masta
+            print(f'SSL error with {loc} on attempt {tries} ...trying again')
         except APICallTimeoutError:
-            loc = location[:] or 'lat: {}, lon: {}'.format(location['lat'],
+            loc = location or 'lat: {}, lon: {}'.format(location['lat'],
                                                            location['lon'])
             print(f'''Timeout error with {loc} on attempt {tries}... waiting 1
                   second then trying again''')
@@ -103,7 +106,7 @@ def get_data_from_weather_api(owm, location):
     if tries == 4:
         print('''tried 3 times without response; breaking out and causing an
         error that will crash your current colleciton process...fix that!''')
-        return ### sometime write something to keep track of the zip and
+        return -1  ### sometime write something to keep track of the zip and
                 ### instant that isn't collected ###
 
 def get_current_weather(location):
@@ -124,6 +127,9 @@ def get_current_weather(location):
         try:
             # get the raw data from the OWM and make a Weather from it
             result = get_data_from_weather_api(owm, location)
+            if result is -1:
+                print(f'Did not get current weather for {location} and reset owm')
+                return result
             result = json.loads(result.to_JSON())  # the current weather for the given zipcode
             result['Weather']['location'] = result['Location'].pop('coordinates')
             result.pop('reception_time')
@@ -133,8 +139,6 @@ def get_current_weather(location):
         except APICallTimeoutError:
             owm = owm_loohoo
             m += 1
-    print(f'Did not get current weather for {location} and reset owm')
-    return
     
 def five_day(location):
     ''' Get each weather forecast for the corrosponding coordinates

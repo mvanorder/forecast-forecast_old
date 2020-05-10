@@ -1,29 +1,10 @@
-''' Get all the weather data from a list of locations and add those to  their
-respective instant document. 
-'''
+''' Add the weather data to  their respective instant document. '''
 
 import weather
 # import instant
 # from instant import Instant
 # from Extract.make_instants import client, remote_client
 
-
-def load_instants_from_db():
-    ''' Pull all the instant collection from the database and load it up to
-    a dictionary.
-    '''
-    from config import client, database
-    from Extract.make_instants import find_data
-
-    # setting collection for testing
-    collection = 'instant_temp'
-    instants = {}
-    data = find_data(client, database, collection)
-    # add each doc to instants and set its key and _id to the same values
-    for item in data:
-        # Set the dict keys from the items adding to it
-        instants[f'{item["_id"]}'] = item['_id']
-    return instants
 
 
 if __name__ == '__main__':

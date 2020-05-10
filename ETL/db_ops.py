@@ -1,3 +1,5 @@
+''' Useful functions for forecast-forecast specific operations '''
+
 import time
 
 from pymongo import MongoClient
@@ -8,7 +10,6 @@ from urllib.parse import quote
 
 # from config import user, password, socket_path, host, port
 
-''' Useful functions for forecast-forecast specific operations '''
 
 def Client(host=None, port=None, uri=None):
     ''' Create and return a pymongo MongoClient object. Connect with the given parameters if possible, switch to local if the
