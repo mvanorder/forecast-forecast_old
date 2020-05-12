@@ -110,7 +110,7 @@ def sweep(instants):
                 col.delete_one(doc)
                 n += 1
     else:
-        print(f'''You want me to sweep instants that are {type(instants))}''')
+        print(f'You want me to sweep instants that are {type(instants)}\'s.')
     return
 
 def find_legit(instants):
@@ -166,15 +166,15 @@ if __name__ == '__main__':
     database and clear out any instants that are past and not legit.
     '''
     
-    import config, database
+    import config
     import db_ops
 
     # Set the database here if you must, but it's better to do that in the
     # config.py file
 #     database = 'owmap'
     collection = 'instant_temp'
-    col = db_ops.dbncol(config.client, collection, database=database)
+    col = db_ops.dbncol(config.client, collection, database=config.database)
     cast_count_all(col.find({}))
     sweep(col.find({}))
 
-    print(f'''Total operation time for instant.py was {time.time()-start_time} seconds.''')
+    print(f'Total op time for instant.py was {time.time()-start_time} seconds')

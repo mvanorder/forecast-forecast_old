@@ -9,7 +9,7 @@ from pymongo.errors import ConnectionFailure, InvalidDocument, DuplicateKeyError
 from urllib.parse import quote
 
 # from config import user, password, socket_path, host, port
-
+database = 'test'
 
 def Client(host=None, port=None, uri=None):
     ''' Create and return a pymongo MongoClient object. Connect with the given parameters if possible, switch to local if the
@@ -46,7 +46,7 @@ def Client(host=None, port=None, uri=None):
             print('connection made with local server, even though you asked for the remote server')
             return client
 
-def dbncol(client, collection, database='test'):
+def dbncol(client, collection, database=database):
     ''' Make a connection to the database and collection given in the arguments.
 
     :param client: a MongoClient instance
@@ -78,7 +78,7 @@ def load(data, client, database, collection):
     :type collection: str
     '''
 
-    col = dbncol(client, collection, database='test1')
+    col = dbncol(client, collection, database=database)
 
     # set the appropriate database collections, filters and update types
     if collection == 'instant':

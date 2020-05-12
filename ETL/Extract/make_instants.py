@@ -22,7 +22,7 @@ host = 'localhost'
 # use the remote host and port when the instant document is complete and is ready for application
 password = quote(password)    # url encode the password for the mongodb uri
 uri = "mongodb+srv://%s:%s@%s" % (user, password, socket_path)
-print(uri)
+print(f'from Extract.config {uri}')
 
 
 def Client(host=None, port=None, uri=None):
@@ -144,6 +144,12 @@ def update_command_for(data):
     :return: the command that will be used to find and update documents
     ''' 
     from pymongo import UpdateOne
+    if "weather" in data:
+        try:
+            filters = {'_id': data['_id']}
+            updates = {'$set': {'weather': data}}
+        except:
+            pass
     if "Weather" in data:
         try:
             filters = {'zipcode': data['Weather'].pop('zipcode'), 'instant': data['Weather'].pop('instant')}
@@ -209,6 +215,18 @@ def make_load_list_from_cursor(pymongoCursorOnWeather):
     '''
 
     update_list = []
+    # Make the load list if the documents are instants.
+    try:
+        for key, weather in pymongoCursorOnWeather:
+            filters = {'_id': data['_id']}
+            updates = {'$set': data}
+            update_list.append(UpdateOne(filters, updates,  upsert=True))
+        return update_list
+    except:
+        print(f'caught exception making load list for instants update on :   .')
+        return -1
+#             if weather['_id'] == 'observation':
+#                 update_list.append(update_command_for(obj))
     # check the first entry to know whether it's forecast or observation
     # print(pymongoCursorOnWeather.count_documents())
     if 'Weather' in pymongoCursorOnWeather[0]:

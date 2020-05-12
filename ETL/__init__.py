@@ -2,6 +2,7 @@
 
 from urllib.parse import quote
 
+from config import database
 import forecastforecast as ff
 import ff.ETL
 from ff.ETL import db_ops
@@ -24,4 +25,3 @@ print(uri)
 # Setup some database stuff.
 client = Client(host, port)  # sets a global pymongo MongoClient object 
 remote_client = Client(uri)
-database = 'test'

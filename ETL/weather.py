@@ -48,14 +48,20 @@ class Weather:
         ''' This will find the id'd Instant and add the Weather to it according 
         to its type.
         
+        :param instants: a collection of instants
+        :type instnats: dict
+        
         *** NOTE: the object instants must be in the function's namespace ***
         '''
 
-        
+        if not instants:
+            instants = {'init': 'true'}
         if self.type == 'observation':
+#             print('setting something as observation')
             instants.setdefault(self._id, Instant(self._id, observations=self.weather))
             return
         if self.type == 'forecast':
+#             print('setting something as forecast')
             instants.setdefault(self._id, Instant(self._id)).casts.append(self.weather)
 #             instants.setdefault(self._id, Instant(self._id))['forecasts'].append(self.weather)
 #             instants[self._id]['forecasts'].append(weather)
@@ -148,7 +154,7 @@ def five_day(location):
     :type coords: tuple containing the latitude and logitude for the forecast
 
     :return casts: the five day, every three hours, forecast for the zip code
-    :type casts: dict
+    :type casts: list of Weather objects
     '''
 
     owm = OWM(masta_key)
