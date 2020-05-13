@@ -12,9 +12,6 @@ from pyowm.exceptions.api_call_error import APIInvalidSSLCertificateError
 from config import OWM_API_key_loohoo as loohoo_key
 from config import OWM_API_key_masta as masta_key
 from instant import Instant
-# from config import client
-
-# from Extract.make_instants import find_data
 
 
 class Weather:
@@ -57,14 +54,10 @@ class Weather:
         if not instants:
             instants = {'init': 'true'}
         if self.type == 'observation':
-#             print('setting something as observation')
             instants.setdefault(self._id, Instant(self._id, observations=self.weather))
             return
         if self.type == 'forecast':
-#             print('setting something as forecast')
             instants.setdefault(self._id, Instant(self._id)).casts.append(self.weather)
-#             instants.setdefault(self._id, Instant(self._id))['forecasts'].append(self.weather)
-#             instants[self._id]['forecasts'].append(weather)
             return
 
 
@@ -134,9 +127,10 @@ def get_current_weather(location):
             # get the raw data from the OWM and make a Weather from it
             result = get_data_from_weather_api(owm, location)
             if result is -1:
-                print(f'Did not get current weather for {location} and reset owm')
+                print(f'Did not get current weather for {location}; reset owm')
                 return result
-            result = json.loads(result.to_JSON())  # the current weather for the given zipcode
+            result = json.loads(result.to_JSON())   # the current weather for
+                                                    # the given zipcode
             result['Weather']['location'] = result['Location'].pop('coordinates')
             result.pop('reception_time')
             result.pop('Location')
@@ -168,15 +162,3 @@ def five_day(location):
         instant = data['reference_time']
         casts.append(Weather(location, 'forecast', data))
     return casts
-
-
-# from Extract.make_instants import find_data
-# # set database and collection for testing
-# database = 'test'
-# collection = 'instant_temp'
-# # create a dict to hold the instants pulled from the database
-# instants = {}
-# data = find_data(client, database, collection)
-# # add each doc to instants and set its key and _id to the same values
-# for item in data:
-#     instants[f'{item["_id"]}'] = item['_id']
