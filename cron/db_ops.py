@@ -11,6 +11,40 @@ from urllib.parse import quote
 # from config import user, password, socket_path, host, port
 database = 'test'
 
+
+def check_db_access(client):
+    '''A check that there is write access to the database'''
+ 
+    # client = MongoClient(host=host, port=port)
+    if type(client) == None:
+        print('client is type None')
+    try:
+        client.admin.command('ismaster')
+    except ConnectionFailure:
+        print("Server not available")
+    # check the database connections
+        # Get a count of the databases in the beginning
+        # Add a database and collection
+        # Insert something to the db
+        # Get a count of the databases after adding one
+    db_count_pre = len(client.list_database_names())
+    db = client.test_db
+    col = db.test_col
+    post = {'name':'Chuck VanHoff',
+           'age':'38',
+           'hobby':'gardening'
+           }
+    col.insert_one(post)
+    db_count_post = len(client.list_database_names())
+    if db_count_pre - db_count_post >= 0:
+        print('Your conneciton is flipped up')
+    else:
+        print('You have write access')
+    # Dump the extra garbage and close out
+    # client.drop_database(db)
+    client.close()
+    return
+
 def Client(host=None, port=None, uri=None):
     ''' Create and return a pymongo MongoClient object. Connect with the given parameters if possible, switch to local if the
     remote connection is not possible, using the default host and port.
@@ -25,6 +59,7 @@ def Client(host=None, port=None, uri=None):
     if host and port:
         try:
             client = MongoClient(host=host, port=port)
+            check_db_access(client)
             return client
         except ConnectionFailure:
             # connect to the remote server if a valid uri is given
@@ -39,13 +74,14 @@ def Client(host=None, port=None, uri=None):
         # verify that the connection with the remote server is active and switch to the local server if it's not
         try:
             client = MongoClient(uri)
+            check_db_access(client)
             return client
         except ConfigurationError:
             print(f'Caught configurationError in client() for URI={uri}. It was likely triggered by a DNS timeout.')
             client = MongoClient(host=host, port=port)
             print('connection made with local server, even though you asked for the remote server')
             return client
-
+    
 def dbncol(client, collection, database=database):
     ''' Make a connection to the database and collection given in the arguments.
 
@@ -60,7 +96,13 @@ def dbncol(client, collection, database=database):
     :type: pymongo.collection.Collection
     '''
 
-    db = Database(client, database)
+    n=0
+    try:
+        db = Database(client, database)
+    except AttributeError:
+        from config import uri
+        client = MongoClient(uri)
+        db = Database(client, database)
     col = Collection(db, collection)
     return col
 

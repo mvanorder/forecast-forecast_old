@@ -9,9 +9,7 @@ def load_instants_from_db(reverse=False, instants=None, mod=False):
     ''' Pull all the instant collection from the database and load it up to
     a dictionary.
     '''
-    # from config import client
-    from config import remote_client as client
-    from config import database
+    from config import client, database
     from Extract.make_instants import find_data
     from db_ops import dbncol
 

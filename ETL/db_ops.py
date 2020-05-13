@@ -34,7 +34,7 @@ def Client(host=None, port=None, uri=None):
                 print(f'established remote MongoClient on URI={uri}')
                 return client
             print('caught ConnectionFailure on local server. Returning None')
-            return None
+            return
     elif uri:
         # verify that the connection with the remote server is active and switch to the local server if it's not
         try:

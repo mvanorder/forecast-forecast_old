@@ -138,17 +138,22 @@ def load_legit(legit_list):
     '''
 
     from pymongo.errors import DuplicateKeyError
-    from config import client, database
+    import config
+    from config import remote_client
+    from config import client
+    from config import database
     from db_ops import dbncol
-    from db_ops import copy_docs
+    # from db_ops import copy_docs
     
-### this should load to legit_inst in owmap for production ###
-#         col = dbncol(client, 'legit_inst', 'owmap')
-    col = dbncol(client, 'legit_inst', database=database)
+### this should load to the remote_client.owmap.legit_inst for production ###
+    remote_col = dbncol(remote_client, 'legit_inst', database=database)
+    col = dbncol(client, 'instant_temp', database=database)
+    # col = dbncol(client, 'legit_inst', database=database)
     try:
-        col.insert_one(legit_list)
+        check = remote_col.insert_one(legit_list)
+        if not check:
+            print('was not able to insert to remote db')
     except DuplicateKeyError:
-        col = dbncol(client, 'instant_temp', database=database)
         col.delete_one(legit_list)
         ### saved for later, when doing it on bulk ###
 #     col.insert_many(legit_list)
