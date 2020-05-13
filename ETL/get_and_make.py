@@ -1,10 +1,34 @@
-''' Add the weather data to  their respective instant document. '''
+''' Get all the weather data from a list of locations and add those to  their
+respective instant document. 
+'''
 
 import weather
-# import instant
-# from instant import Instant
-# from Extract.make_instants import client, remote_client
 
+
+def load_instants_from_db(reverse=False, instants=None, mod=False):
+    ''' Pull all the instant collection from the database and load it up to
+    a dictionary.
+    '''
+    from config import client, database
+    from Extract.make_instants import find_data
+    from db_ops import dbncol
+
+    database = 'OWM'
+    collection = 'instant_temp'
+    temp = {}  # Holder for the data from database.collection
+    data = find_data(client, database, collection)
+
+    # add each doc to instants and set its key and _id to the same values
+    for item in data:
+#         print(item)
+        # Set the dict keys from the items adding the items to those keys
+        if mod == True:
+            _id = f'{item.pop("zipcode")}{item.pop("instant")}'
+            item['_id'] = _id
+            temp[_id] = item
+        else:
+            temp[f'{item["_id"]}'] = item
+    return temp
 
 
 if __name__ == '__main__':
@@ -24,7 +48,7 @@ if __name__ == '__main__':
         filename = os.path.join(directory, 'ETL', 'Extract', 'resources', 'success_zipsNC.csv')
         codes = read_list_from_file(filename)
     # Pull in all the documents from the db.instants database collection
-    instants = load_instants_from_db()    
+    instants = load_instants_from_db()
     # Start pulling all the data from the weather API
     weather_list = []
     
@@ -34,7 +58,7 @@ if __name__ == '__main__':
     k, n = 0, 0 # i for counting zipcodes processed and n for counting API
                 # calls made; API calls capped at 60/minute/apikey.
     start_time = time.time()
-    for code in codes[:62]:
+    for code in codes:
         o = weather.get_current_weather(code)  # 'o' for observation
         n += 1
         location = o.weather['Weather'].pop('location')  # You need the coordinate location
@@ -56,7 +80,7 @@ if __name__ == '__main__':
                 k+=1
                 if n>=120:
                     for i in weather_list:
-                        i.to_inst()
+                        i.to_inst(instants)
                     if time.time() - start_time < 60:
                         print(f'Waiting {start_time+60 - time.time()} seconds before resuming API calls.')
                         time.sleep(start_time - time.time() + 60)
