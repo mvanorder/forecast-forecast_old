@@ -227,9 +227,9 @@ def load_weather(data, client, database, collection):
             col.find_one_and_update(filters, updates,  upsert=True)
         except DuplicateKeyError:
             return(f'DuplicateKeyError, could not insert data to {collection}')
-    elif collection == 'observed'
-        or collection == 'forecasted'
-        or collection == 'obs_temp'
+    elif collection == 'observed'\
+        or collection == 'forecasted'\
+        or collection == 'obs_temp'\
         or collection == 'cast_temp':
         try:
             col.insert_one(data)

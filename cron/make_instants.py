@@ -171,17 +171,17 @@ def update_command_for(data):
         ### for processing data in OWM.forecasted and OWM.observed.
             if "Weather" in data:
                 try:
-                    data['Weather']['time_to_instant'] = 
-                            data['Weather'].pop('reference_time')
+                    data['Weather']['time_to_instant'] = \
+                            data['Weather'].pop('reference_time')\
                             - data['reception_time']
-                    filters = {'zipcode': data.pop('zipcode'),
+                    filters = {'zipcode': data.pop('zipcode'),\
                                 'instant': data.pop('instant')}
                     updates = {'$set': {'weather': data['Weather']}}
                 except KeyError:
                     print('caught KeyError')
             else:
                 try:
-                    filters = {'zipcode': data.pop('zipcode'),
+                    filters = {'zipcode': data.pop('zipcode'),\
                                 'instant': data.pop('instant')}
                     updates = {'$push': {'forecasts': data}} 
                 except KeyError:
@@ -207,22 +207,22 @@ def delete_command_for(data):
     # version of this one, but otherwise expect there to be ..... come back
     if "Weather" in data:
         try:
-            filters = {'zipcode': data['Weather'].pop('zipcode'),
+            filters = {'zipcode': data['Weather'].pop('zipcode'),\
                         'instant': data['Weather'].pop('instant')}
             updates = {'$set': {'weather': data['Weather']}}
         except KeyError:
             # this if for processing data in OWM.forecasted and OWM.observed.
-            data['Weather']['time_to_instant'] 
-                    = data['Weather'].pop('reference_time')
+            data['Weather']['time_to_instant'] \
+                    = data['Weather'].pop('reference_time')\
                     - data['reception_time']
-            filters = {'zipcode': data.pop('zipcode'),
+            filters = {'zipcode': data.pop('zipcode'),\
                         'instant': data.pop('instant')}
             updates = {'$set': {'weather': data['Weather']}}
         except KeyError:
             print('caught KeyError')
     else:
         try:
-            filters = {'zipcode': data.pop('zipcode'),
+            filters = {'zipcode': data.pop('zipcode'),\
                         'instant': data.pop('instant')}
             updates = {'$push': {'forecasts': data}} # append to forecasts list
         except KeyError:
@@ -257,7 +257,7 @@ def make_load_list_from_cursor(pymongoCursorOnWeather):
                                             # forecast
                     for cast in casts:
                         cast['zipcode'] = obj['zipcode']
-                        cast['time_to_instant'] = cast['instant']
+                        cast['time_to_instant'] = cast['instant']\
                                                 - obj['reception_time']
                         update_list.append(update_command_for(cast))
                 else:    
@@ -267,7 +267,7 @@ def make_load_list_from_cursor(pymongoCursorOnWeather):
                         # this is just setting the fields as I need them for
                         # each update object as it gets loaded to the database
                         cast['zipcode'] = obj['zipcode']
-                        cast['time_to_instant'] = cast['instant']
+                        cast['time_to_instant'] = cast['instant']\
                                                 - cast['reception_time']
                         update_list.append(update_command_for(cast))
             except KeyError:
