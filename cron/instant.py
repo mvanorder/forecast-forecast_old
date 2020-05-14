@@ -21,8 +21,8 @@ class Instant:
     
     @property
     def itslegit(self):
-        ''' Check the instant's weathers array's count and if it is 40, then the
-        document is returned.
+        ''' Check the instant's weathers array's count and if it is 40, then
+        the document is returned.
 
         :param instant: the instant docuemnt to be legitimized
         :type instant: dictionary
@@ -51,7 +51,7 @@ class Instant:
 def cast_count_all(instants):
     ''' get a tally for the forecast counts per document 
 
-    :param instants: docmuments loaded from the db.instants collection ### NOT
+    :param instants: docmuments loaded from the db.instants collection
     Instant class objects
     :type instants: list
     '''
@@ -78,7 +78,8 @@ def sweep(instants):
     ref_time and with self.count less than 40. This is getting rid of the
     instnats that are not and will never be legit. 
 
-    :param instants: a list of Instant objects
+    :param instants: a itterable of Instant objects
+    :type instants: dict, list, pymongo cursor
     '''
     
     import time
@@ -138,17 +139,22 @@ def load_legit(legit_list):
     '''
 
     from pymongo.errors import DuplicateKeyError
-    from config import client, database
+
+    import config
+    from config import remote_client
+    from config import client
+    from config import database
     from db_ops import dbncol
-    from db_ops import copy_docs
     
-### this should load to legit_inst in owmap for production ###
-#         col = dbncol(client, 'legit_inst', 'owmap')
-    col = dbncol(client, 'legit_inst', database=database)
+### this should load to the remote_client.owmap.legit_inst for production ###
+    remote_col = dbncol(remote_client, 'legit_inst', database=database)
+    col = dbncol(client, 'instant_temp', database=database)
+    # col = dbncol(client, 'legit_inst', database=database)
     try:
-        col.insert_one(legit_list)
+        check = remote_col.insert_one(legit_list)
+        if not check:
+            print('was not able to insert to remote db')
     except DuplicateKeyError:
-        col = dbncol(client, 'instant_temp', database=database)
         col.delete_one(legit_list)
         ### saved for later, when doing it on bulk ###
 #     col.insert_many(legit_list)
@@ -169,12 +175,8 @@ if __name__ == '__main__':
     import config
     import db_ops
 
-    # Set the database here if you must, but it's better to do that in the
-    # config.py file
-#     database = 'owmap'
     collection = 'instant_temp'
     col = db_ops.dbncol(config.client, collection, database=config.database)
     cast_count_all(col.find({}))
     sweep(col.find({}))
-
     print(f'Total op time for instant.py was {time.time()-start_time} seconds')

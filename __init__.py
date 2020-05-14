@@ -1,5 +1,7 @@
 import pymongo
 from pymongo import MongoClient
+
+import overalls
 from config import host, port, uri
 from ETL.db_ops import Client
 

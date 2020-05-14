@@ -4,17 +4,15 @@ import json
 
 from pymongo import MongoClient
 
-from request_and_load import read_list_from_file
-from request_and_load import five_day, get_current_weather
-from request_and_load import load_weather 
+from request_and_load import get_current_weather, five_day, load_weather, read_list_from_file
 from make_instants import make_instants
-from config import OWM_API_key_loohoo as loohoo_key
-from config import OWM_API_key_masta as masta_key
+
+from config import OWM_API_key_loohoo as loohoo_key, OWM_API_key_masta as masta_key
 from config import port, host, user, password, socket_path
 
+
 def get_and_make(codes):
-    ''' Request weather data from the OWM api. Transform and load that data
-    into a database.
+    ''' Request weather data from the OWM api. Transform and load that data into a database.
     
     :param codes: a list of zipcodes
     :type codes: list of five-digit valid strings of US zip codes
@@ -23,29 +21,27 @@ def get_and_make(codes):
     # Begin a timer for the process and run the request and load process.
     start_start = time.time()
     print(f'task began at {start_start}')
-    i, n = 0, 0 # i for counting zipcodes processed and n for counting API
-                # calls made; API calls limited to a maximum 60/minute/apikey.
+    i, n = 0, 0 # i for counting zipcodes processed and n for counting API calls made; API calls limited to a maximum of 60/minute/apikey.
     start_time = time.time()
     for code in codes:
         try:
             current = get_current_weather(code)
         except AttributeError:
-            print(f'AttributeError for {code}. Continuing to next code.')
+            print(f'got AttributeError while collecting current weather for {code}. Continuing to next code.')
             continue
         n+=1
         coords = current['coordinates']         
         try:
             forecasts = five_day(coords, code=code)
         except AttributeError:
-            print(f'got AttributeError for {code}. Continuing to next code.')
+            print(f'got AttributeError while collecting forecasts for {code}. Continuing to next code.')
             continue
         n+=1
-        load_weather(current, client, 'owmap', 'obs_temp')
-        load_weather(forecasts, client, 'owmap', 'cast_temp')
+        load_weather(current, client, 'test', 'obs_temp')
+        load_weather(forecasts, client, 'test', 'cast_temp')
         
-        # if the api request rate is greater than 60 just keep going. Otherwise
-        # check how many requests have been made and if it's more than 120
-        # start make_instants.
+        # if the api request rate is greater than 60 just keep going. Otherwise check how many requests have been made
+        # and if it's more than 120 start make_instants.
         if n/2 / (time.time()-start_time) <= 1:
             i+=1
             continue
@@ -64,11 +60,11 @@ def get_and_make(codes):
         make_instants(client)
     except:
         print('No more documents to sort into instants')
-    print(f'task took {time.time() - start_start}sec and processed {i} codes')
+    print(f'task took {time.time() - start_start} seconds and processed {i} zipcodes')
+    
 
 if __name__ == '__main__':
-    # This try block is to deal with the switching back and forth between
-    # computers with different directory names.
+    # this try block is to deal with the switching back and forth between computers with different directory names
     try:
         directory = os.path.join(os.environ['HOME'], 'data', 'forcast-forcast')
         filename = os.path.join(directory, 'ETL', 'Extract', 'resources', 'success_zipsNC.csv')
