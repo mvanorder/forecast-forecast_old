@@ -39,14 +39,16 @@ if __name__ == '__main__':
     
     print(dir())
     # Get the list of locations from the resources directory
-    try:
-        directory = os.path.join(os.environ['HOME'], 'data', 'forcast-forcast')
-        filename = os.path.join(directory, 'ETL', 'Extract', 'resources', 'success_zipsNC.csv')
-        codes = read_list_from_file(filename)
-    except FileNotFoundError:
+    directory = os.path.join(os.environ['HOME'], 'data', 'forcast-forcast')
+    filename = os.path.join(directory, 'ETL', 'Extract', 'resources', 'success_zipsNC.csv')
+    if not os.path.isfile(filename):
         directory = os.path.join(os.environ['HOME'], 'data', 'forecast-forecast')
         filename = os.path.join(directory, 'ETL', 'Extract', 'resources', 'success_zipsNC.csv')
-        codes = read_list_from_file(filename)
+        if not os.path.isfile(filename):
+            print(f'{filename} is missing. Pleease create it and populate it with a list of zip codes')
+            exit()
+
+    codes = read_list_from_file(filename)
     # Pull in all the documents from the db.instants database collection
     instants = load_instants_from_db()
     # Start pulling all the data from the weather API
