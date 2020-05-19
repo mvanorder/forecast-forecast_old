@@ -3,7 +3,7 @@ respective instant document.
 '''
 
 import weather
-
+from pymongo.errors import ServerSelectionTimeoutError
 
 def load_instants_from_db(reverse=False, instants=None, mod=False):
     ''' Pull all the instant collection from the database and load it up to
@@ -18,16 +18,20 @@ def load_instants_from_db(reverse=False, instants=None, mod=False):
     temp = {}  # Holder for the data from database.collection
     data = find_data(client, database, collection)
 
-    # add each doc to instants and set its key and _id to the same values
-    for item in data:
-#         print(item)
-        # Set the dict keys from the items adding the items to those keys
-        if mod == True:
-            _id = f'{item.pop("zipcode")}{item.pop("instant")}'
-            item['_id'] = _id
-            temp[_id] = item
-        else:
-            temp[f'{item["_id"]}'] = item
+    try:
+        # add each doc to instants and set its key and _id to the same values
+        for item in data:
+#            print(item)
+            # Set the dict keys from the items adding the items to those keys
+            if mod == True:
+                _id = f'{item.pop("zipcode")}{item.pop("instant")}'
+                item['_id'] = _id
+                temp[_id] = item
+            else:
+                temp[f'{item["_id"]}'] = item
+    except ServerSelectionTimeoutError as e:
+        print(f'Unable to connect to mongodb: {e}')
+        exit()
     return temp
 
 
